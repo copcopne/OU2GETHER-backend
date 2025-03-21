@@ -11,22 +11,24 @@ class BaseModel(models.Model):
         abstract = True
 
 
+class ImageModel(models.Model):
+    image = CloudinaryField(null=True)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        abstract = True
+
+
 class User(AbstractUser):
     pass
 
-class UserAvatars(models.Model):
-    avatar = CloudinaryField(null=True)
-    uploaded_at = models.DateTimeField(auto_now_add=True)
-    is_active = models.BooleanField(default=True)
-    
+
+class UserAvatars(ImageModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
 
 
 class UserCovers(models.Model):
-    cover = CloudinaryField(null=True)
-    uploaded_at = models.DateTimeField(auto_now_add=True)
-    is_active = models.BooleanField(default=True)
-    
     user = models.ForeignKey(User, on_delete=models.CASCADE)
 
 
@@ -37,6 +39,25 @@ class Post(BaseModel):
     
     user = models.ForeignKey(User, on_delete=models.CASCADE)
 
+
+class PostImages(ImageModel):
+    post = models.ForeignKey(Post, on_delete=models.CASCADE)
+
+
+class PostPolls(BaseModel):
+    question = models.CharField(max_length=255)
+
+
+class PollOptions(BaseModel):
+    content = models.CharField(max_length=255)
+
+    post_poll = models.ForeignKey(PostPolls, on_delete=models.CASCADE)
+
+
+class PollVotes(BaseModel):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+
+    poll_option = models.ForeignKey(PollOptions, on_delete=models.CASCADE)
 
 
 class Interaction(BaseModel):
@@ -64,3 +85,29 @@ class Share(BaseModel):
 
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     post = models.ForeignKey(Post, on_delete=models.CASCADE, null=True, blank=True)
+
+
+class Notification(BaseModel):
+    pass
+
+
+class Conversation(BaseModel):
+    pass
+
+
+class ConversationMember(BaseModel):
+    pass
+
+
+class Message(BaseModel):
+    pass
+
+
+class MessageStatus(BaseModel):
+    pass
+
+
+class Follow(BaseModel):
+    follower = models.ForeignKey(User, on_delete=models.CASCADE, related_name='follower')
+    following = models.ForeignKey(User, on_delete=models.CASCADE, related_name='following')
+    
