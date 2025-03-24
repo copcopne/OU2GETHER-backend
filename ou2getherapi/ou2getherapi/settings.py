@@ -37,6 +37,8 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'ou2gether.apps.Ou2GetherConfig',
+    'rest_framework',
 ]
 
 MIDDLEWARE = [
@@ -75,10 +77,33 @@ WSGI_APPLICATION = 'ou2getherapi.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': 'ou2gether',
+        'USER': 'root',
+        'PASSWORD': 'root',
+        'HOST': ''
     }
 }
+
+
+import pymysql
+pymysql.install_as_MySQLdb()
+
+
+AUTH_USER_MODEL = 'ou2gether.User'
+
+
+import cloudinary
+import cloudinary.uploader
+from cloudinary.utils import cloudinary_url
+
+# Configuration
+cloudinary.config(
+    cloud_name = "dq3dtj8lz",
+    api_key = "582527119715667",
+    api_secret = "zWDS8SbqF_hr_aDUMyS0PKiyWK8",
+    secure=True
+)
 
 
 # Password validation
@@ -103,12 +128,10 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/5.1/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
-
-TIME_ZONE = 'UTC'
+LANGUAGE_CODE = 'vi'
+TIME_ZONE = 'Asia/Ho_Chi_Minh'
 
 USE_I18N = True
-
 USE_TZ = True
 
 
