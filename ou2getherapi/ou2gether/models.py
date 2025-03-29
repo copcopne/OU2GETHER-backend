@@ -11,10 +11,8 @@ class BaseModel(models.Model):
         abstract = True
 
 
-class ImageModel(models.Model):
-    image = CloudinaryField(null=True)
-    uploaded_at = models.DateTimeField(auto_now_add=True)
-    is_active = models.BooleanField(default=True)
+class MediaModel(BaseModel):
+    file = CloudinaryField(null=True)
 
     class Meta:
         abstract = True
@@ -27,8 +25,9 @@ class Role(models.IntegerChoices):
     
 
 class User(AbstractUser):
-    role = models.PositiveSmallIntegerField(choices=Role.choices, default=Role.STUDENT)
+    role = models.PositiveSmallIntegerField(choices=Role.choices, default=Role.ADMIN)
     bio = models.TextField()
+    is_verified = models.BooleanField(default=False)
     personal_email = models.EmailField()
 
 
@@ -44,11 +43,13 @@ class UserLecturer(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
 
 
-class UserAvatar(ImageModel):
+class UserPhoto(MediaModel):
+    type = models.CharField(max_length=10, choices=[('avatar', 'Avatar'), ('cover', 'Cover')])
+    
     user = models.ForeignKey(User, on_delete=models.CASCADE)
 
 
-class UserCover(models.Model):
+class UserCover(MediaModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
 
 
@@ -66,12 +67,14 @@ class Post(BaseModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
 
 
-class PostImage(ImageModel):
+class PostMedia(MediaModel):
     post = models.ForeignKey(Post, on_delete=models.CASCADE)
 
 
 class PostPoll(BaseModel):
     question = models.CharField(max_length=255)
+
+    post = models.ForeignKey(Post, on_delete=models.CASCADE)
 
 
 class PollOption(BaseModel):
@@ -80,7 +83,7 @@ class PollOption(BaseModel):
     post_poll = models.ForeignKey(PostPoll, on_delete=models.CASCADE)
 
 
-class PollVotes(BaseModel):
+class PollVote(BaseModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
 
     poll_option = models.ForeignKey(PollOption, on_delete=models.CASCADE)
@@ -115,7 +118,7 @@ class Comment(BaseModel):
     parent_comment = models.ForeignKey("self", on_delete=models.CASCADE, null=True, blank=True, db_index=True)
 
 
-class CommentImage(ImageModel):
+class CommentMedia(MediaModel):
     comment = models.ForeignKey(Comment, on_delete=models.CASCADE)
 
 
@@ -127,14 +130,13 @@ class Share(BaseModel):
 
 
 class Notification(BaseModel):
-    # title = models.CharField(max_length=255)
-    # content = models.TextField()
-    # is_read = models.BooleanField(default=False)
-    # target_type = models.CharField(max_length=10, choices=[('post', 'Post'), ('comment', 'Comment'), ('share', 'Share')])
-    # target_id = models.IntegerField()
+    title = models.CharField(max_length=255)
+    message = models.TextField()
+    is_read = models.BooleanField(default=False)
+    target_type = models.CharField(max_length=10, choices=[('post', 'Post'), ('comment', 'Comment'), ('share', 'Share')])
+    target_id = models.BigIntegerField()
 
-    # user = models.ForeignKey(User, on_delete=models.CASCADE)
-    pass
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
 
 
 class Conversation(BaseModel):
@@ -159,8 +161,8 @@ class Follow(BaseModel):
 
 
 class BlockList(BaseModel):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    blocked_user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='blocked_user')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='blocking')
+    blocked_user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='blocked_by')
 
     class Meta:
         unique_together = ('user', 'blocked_user')

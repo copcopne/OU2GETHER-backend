@@ -38,7 +38,9 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'ou2gether.apps.Ou2GetherConfig',
+    'oauth2_provider',
     'rest_framework',
+    'drf_yasg'
 ]
 
 MIDDLEWARE = [
