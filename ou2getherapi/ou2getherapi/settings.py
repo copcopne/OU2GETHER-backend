@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-%pkzge&unj70m@w$(h(r9eygg+4^^36=8nwk1)nc*z6jczuw*4
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['copcopne.pythonanywhere.com']
 
 
 # Application definition
@@ -141,6 +141,8 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
 STATIC_URL = 'static/'
+
+STATIC_ROOT = "/home/copcopne/staticfiles" # Cấu hình pythonanywhere
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
