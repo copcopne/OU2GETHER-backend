@@ -12,51 +12,31 @@ class BaseModel(models.Model):
 
 
 class MediaModel(BaseModel):
-    file = CloudinaryField(null=True)
+    file = CloudinaryField()
 
     class Meta:
         abstract = True
 
 
 class Role(models.IntegerChoices):
-    ADMIN = 1, 'Admin'
-    LECTURER = 2, 'Lecturer'
-    STUDENT = 3, 'Student'
+    ADMIN = 0, 'Admin'
+    LECTURER = 1, 'Lecturer'
+    STUDENT = 2, 'Student'
     
 
 class User(AbstractUser):
+    member_id = models.CharField(max_length=12, unique=True)
     role = models.PositiveSmallIntegerField(choices=Role.choices, default=Role.ADMIN)
-    bio = models.TextField()
+    bio = models.TextField(null=True, blank=True)
+    avatar = CloudinaryField()
+    cover = CloudinaryField(null=True, blank=True)
     is_verified = models.BooleanField(default=False)
-    personal_email = models.EmailField()
-
-
-class UserStudent(models.Model):
-    student_id = models.CharField(max_length=10, unique=True)
-    
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
-
-
-class UserLecturer(models.Model):
-    lecturer_id = models.CharField(max_length=10, unique=True)
-
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
-
-
-class UserPhoto(MediaModel):
-    type = models.CharField(max_length=10, choices=[('avatar', 'Avatar'), ('cover', 'Cover')])
-    
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-
-
-class UserCover(MediaModel):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
 
 
 class PostChoices(models.IntegerChoices):
-    TEXT = 1, 'Text'
-    IMAGE = 2, 'Image'
-    POLL = 3, 'Poll'
+    TEXT = 0, 'Text'
+    IMAGE = 1, 'Image'
+    POLL = 2, 'Poll'
 
 
 class Post(BaseModel):
@@ -64,11 +44,17 @@ class Post(BaseModel):
     type = models.PositiveSmallIntegerField(choices=PostChoices.choices)
     is_commendable = models.BooleanField(default=True)
     
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    author = models.ForeignKey(User, on_delete=models.CASCADE)
+    
+    class Meta:
+        ordering = ['-created_at']
 
 
 class PostMedia(MediaModel):
-    post = models.ForeignKey(Post, on_delete=models.CASCADE)
+    post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='post_media')
+    
+    class Meta:
+        ordering = ['-created_at']
 
 
 class PostPoll(BaseModel):
@@ -84,22 +70,22 @@ class PollOption(BaseModel):
 
 
 class PollVote(BaseModel):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='poll_votes')
 
     poll_option = models.ForeignKey(PollOption, on_delete=models.CASCADE)
 
 
-class InterractionChoices(models.IntegerChoices):
-    LIKE = 1, 'Like'
-    LOVE = 2, 'Love'
-    HAHA = 3, 'Haha'
-    WOW = 4, 'Wow'
-    SAD = 5, 'Sad'
-    ANGRY = 6, 'Angry'
+class InteractionChoices(models.IntegerChoices):
+    LIKE = 0, 'Like'
+    LOVE = 1, 'Love'
+    HAHA = 2, 'Haha'
+    WOW = 3, 'Wow'
+    SAD = 4, 'Sad'
+    ANGRY = 5, 'Angry'
 
 
 class Interaction(BaseModel):
-    type = models.PositiveSmallIntegerField(choices=InterractionChoices.choices)
+    type = models.PositiveSmallIntegerField(choices=InteractionChoices.choices)
     
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     post = models.ForeignKey(Post, on_delete=models.CASCADE, null=True, blank=True)
@@ -107,15 +93,29 @@ class Interaction(BaseModel):
     share = models.ForeignKey("Share", on_delete=models.CASCADE, null=True, blank=True)
 
     class Meta:
-        unique_together = ('user', 'post', 'comment', 'share')
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'post'],
+                name='unique_user_post_interaction'
+            ),
+            models.UniqueConstraint(
+                fields=['user', 'comment'],
+                name='unique_user_comment_interaction'
+            ),
+            models.UniqueConstraint(
+                fields=['user', 'share'],
+                name='unique_user_share_interaction'
+            ),
+        ]
 
 
 class Comment(BaseModel):
     content = models.TextField()
+    is_edited = models.BooleanField(default=False)
     
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     post = models.ForeignKey(Post, on_delete=models.CASCADE, null=True, blank=True)
-    parent_comment = models.ForeignKey("self", on_delete=models.CASCADE, null=True, blank=True, db_index=True)
+    parent_comment = models.ForeignKey("self", on_delete=models.CASCADE, null=True, blank=True, db_index=True, related_name='replies')
 
 
 class CommentMedia(MediaModel):
@@ -126,7 +126,13 @@ class Share(BaseModel):
     content = models.TextField()
 
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    post = models.ForeignKey(Post, on_delete=models.CASCADE, null=True, blank=True)
+    shared_post = models.ForeignKey(Post, on_delete=models.SET_NULL, null=True, blank=True, related_name='shares')
+
+
+class Device(BaseModel):
+    device_token = models.CharField(max_length=255, unique=True)
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
 
 
 class Notification(BaseModel):
@@ -138,29 +144,31 @@ class Notification(BaseModel):
 
     user = models.ForeignKey(User, on_delete=models.CASCADE)
 
-
-class Conversation(BaseModel):
-    pass
-
-
-class ConversationMember(BaseModel):
-    pass
+    class Meta:
+        ordering = ['-created_at']
 
 
 class Message(BaseModel):
-    pass
+    content = models.TextField()
+    is_read = models.BooleanField(default=False)
+
+    sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sender')
+    receiver = models.ForeignKey(User, on_delete=models.CASCADE, related_name='receiver')
+
+    class Meta:
+        ordering = ['-created_at']
 
 
-class MessageStatus(BaseModel):
-    pass
+class MessageMedia(MediaModel):
+    message = models.ForeignKey(Message, on_delete=models.CASCADE, related_name='message_media')
 
 
 class Follow(BaseModel):
-    follower = models.ForeignKey(User, on_delete=models.CASCADE, related_name='follower')
-    following = models.ForeignKey(User, on_delete=models.CASCADE, related_name='following')
+    follower = models.ForeignKey(User, on_delete=models.CASCADE, related_name='followings')
+    following = models.ForeignKey(User, on_delete=models.CASCADE, related_name='followers')
 
 
-class BlockList(BaseModel):
+class Block(BaseModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='blocking')
     blocked_user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='blocked_by')
 
