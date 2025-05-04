@@ -43,6 +43,7 @@ class Post(BaseModel):
     content = models.TextField()
     type = models.PositiveSmallIntegerField(choices=PostChoices.choices)
     is_commendable = models.BooleanField(default=True)
+    is_edited = models.BooleanField(default=False)
     
     author = models.ForeignKey(User, on_delete=models.CASCADE)
     
@@ -51,7 +52,8 @@ class Post(BaseModel):
 
 
 class PostMedia(MediaModel):
-    post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='post_media')
+    post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='media')
+    media_type = models.CharField(max_length=10, choices=[('image','Image'),('video','Video')])
     
     class Meta:
         ordering = ['-created_at']
@@ -60,19 +62,19 @@ class PostMedia(MediaModel):
 class PostPoll(BaseModel):
     question = models.CharField(max_length=255)
 
-    post = models.ForeignKey(Post, on_delete=models.CASCADE)
+    post = models.OneToOneField(Post, on_delete=models.CASCADE, related_name='poll')
 
 
 class PollOption(BaseModel):
     content = models.CharField(max_length=255)
 
-    post_poll = models.ForeignKey(PostPoll, on_delete=models.CASCADE)
+    post_poll = models.ForeignKey(PostPoll, on_delete=models.CASCADE, related_name='options')
 
 
 class PollVote(BaseModel):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='poll_votes')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='votes')
 
-    poll_option = models.ForeignKey(PollOption, on_delete=models.CASCADE)
+    poll_option = models.ForeignKey(PollOption, on_delete=models.CASCADE, related_name='poll_votes')
 
 
 class InteractionChoices(models.IntegerChoices):
@@ -113,19 +115,20 @@ class Comment(BaseModel):
     content = models.TextField()
     is_edited = models.BooleanField(default=False)
     
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    post = models.ForeignKey(Post, on_delete=models.CASCADE, null=True, blank=True)
+    author = models.ForeignKey(User, on_delete=models.CASCADE)
+    post = models.ForeignKey(Post, on_delete=models.CASCADE)
     parent_comment = models.ForeignKey("self", on_delete=models.CASCADE, null=True, blank=True, db_index=True, related_name='replies')
 
 
 class CommentMedia(MediaModel):
-    comment = models.ForeignKey(Comment, on_delete=models.CASCADE)
+    comment = models.OneToOneField(Comment, on_delete=models.CASCADE, related_name='media')
+    media_type = models.CharField(max_length=10, choices=[('image','Image'),('video','Video')])
 
 
 class Share(BaseModel):
     content = models.TextField()
 
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    author = models.ForeignKey(User, on_delete=models.CASCADE)
     shared_post = models.ForeignKey(Post, on_delete=models.SET_NULL, null=True, blank=True, related_name='shares')
 
 

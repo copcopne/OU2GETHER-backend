@@ -3,7 +3,7 @@ from django.db.models import Count
 from django.template.response import TemplateResponse
 from django.urls import path
 
-from ou2gether.models import User
+from ou2gether.models import User, Post, Comment
 from django.utils.html import mark_safe
 from django import forms
 from ckeditor_uploader.widgets import CKEditorUploadingWidget
@@ -57,6 +57,19 @@ class UserAdmin(admin.ModelAdmin):
     
     def get_readonly_fields(self, request, obj=None):
         return ['role']
+    
+class PostAdmin(admin.ModelAdmin):
+    list_display = ['id', 'content', 'type', 'is_commendable', 'is_edited']
+    search_fields = ['content']
+    list_filter = ['type', 'is_commendable']
+    list_editable = ['content']
+    readonly_fields = ['created_at', 'updated_at']
+
+class CommentAdmin(admin.ModelAdmin):
+    list_display = ['id', 'content', 'is_edited']
+    search_fields = ['content']
+    list_editable = ['content']
+    readonly_fields = ['created_at', 'updated_at']
 
 # class LessonForm(forms.ModelForm):
 #     content = forms.CharField(widget=CKEditorUploadingWidget)
@@ -102,3 +115,5 @@ class UserAdmin(admin.ModelAdmin):
 
 
 admin_site.register(User, UserAdmin)
+admin_site.register(Post, PostAdmin)
+admin_site.register(Comment, CommentAdmin)
