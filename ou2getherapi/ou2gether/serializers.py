@@ -1,7 +1,5 @@
 from rest_framework import serializers
-from cloudinary.uploader import upload
-from cloudinary.utils import cloudinary_url
-from ou2gether.models import User, Post, Comment, InteractionChoices, PostMedia, PostPoll, PollOption, CommentMedia
+from ou2gether.models import User, Post, PostType, Comment, InteractionChoices, PostMedia, PostPoll, PollOption, CommentMedia, Interaction
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -22,7 +20,7 @@ class UserSerializer(serializers.ModelSerializer):
         data = super().to_representation(instance)
 
         data['avatar'] = instance.avatar.url if instance.avatar else ''
-        data['cover'] = instance.cover.url if instance.avatar else ''
+        data['cover'] = instance.cover.url if instance.cover else ''
 
         return data
 
@@ -39,7 +37,7 @@ class UserSerializer(serializers.ModelSerializer):
         data = validated_data.copy()
 
         if 'password' in data:
-            data['password'] = instance.set_password(data['password'])
+            instance.set_password(data.pop('password'))
 
         for attr, value in data.items():
             setattr(instance, attr, value)
@@ -58,13 +56,13 @@ class MinimalUserSerializer(serializers.ModelSerializer):
 class PostMediaSerializer(serializers.ModelSerializer):
     file_url = serializers.CharField(source='file.url')
     
+
     class Meta:
         model = PostMedia
         fields = ['id', 'file_url', 'created_at']
 
 
 class PollOptionSerializer(serializers.ModelSerializer):
-    id = serializers.IntegerField(required=False)
     votes_count = serializers.IntegerField(source='poll_votes.count', read_only=True)
 
     class Meta:
@@ -74,6 +72,13 @@ class PollOptionSerializer(serializers.ModelSerializer):
 
 class PostPollSerializer(serializers.ModelSerializer):
     options = PollOptionSerializer(many=True)
+
+    def create(self, validated_data):
+        options_data = validated_data.pop('options', [])
+        poll = PostPoll.objects.create(**validated_data)
+        for option_data in options_data:
+            PollOption.objects.create(post_poll=poll, **option_data)
+        return poll
 
     def update(self, instance, validated_data):
         options_data = validated_data.pop('options', [])
@@ -107,13 +112,22 @@ class PostPollSerializer(serializers.ModelSerializer):
 
 
 class PostSerializer(serializers.ModelSerializer):
-    poll = PostPollSerializer()
-    media = PostMediaSerializer(many=True)
+    author = MinimalUserSerializer(read_only=True)
+    poll = serializers.SerializerMethodField()
+    media = serializers.SerializerMethodField()
     interactions = serializers.SerializerMethodField()
+
+    def get_poll(self, post):
+        if hasattr(post, 'poll'):
+            return PostPollSerializer(post.poll, context=self.context).data
+        return None
+
+    def get_media(self, post):
+        return PostMediaSerializer(post.media.all(), many=True).data
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        data['author'] = MinimalUserSerializer(instance.author).data
+        data['type'] = PostType(instance.type).label.lower()
         return data
 
     def get_interactions(self, post):
@@ -126,12 +140,12 @@ class PostSerializer(serializers.ModelSerializer):
     class Meta:
         model = Post
         fields = [
-            'id', 'author', 'type', 'is_commendable',
-            'content', 'is_edited', 'created_at', 'updated_at', 'media',
-            'poll', 'interactions',
+            'id', 'author', 'type', 'is_commendable', 'is_shared',
+            'shared_post', 'content', 'is_edited', 'created_at', 'updated_at', 
+            'media', 'poll', 'interactions',
         ]
         read_only_fields = [
-            'author', 'is_edited', 'interactions', 'created_at', 
+            'type', 'author','is_shared', 'shared_post', 'is_edited', 'interactions', 'created_at', 
             'updated_at'
         ]
 
@@ -149,8 +163,11 @@ class CommentSerializer(serializers.ModelSerializer):
     parent_comment = serializers.PrimaryKeyRelatedField(queryset=Comment.objects.filter(is_active=True), required=False)
     media = CommentMediaSerializer(many=False, required=False)
     interactions = serializers.SerializerMethodField()
+    author = MinimalUserSerializer(read_only=True)
 
     def create(self, validated_data):
+        validated_data['author'] = self.context['request'].user
+
         media_data = validated_data.pop('media', None)
 
         parent = self.context.get('parent_comment', None)
@@ -175,10 +192,10 @@ class CommentSerializer(serializers.ModelSerializer):
             self.context['parent_comment'] = parent_comment
         return super().save(**kwargs)
 
-    def to_representation(self, instance):
-        data = super().to_representation(instance)
-        data['parent_comment'] = instance.parent_comment.id if instance.parent_comment else None
-        data['author'] = MinimalUserSerializer(instance.author).data
+    def to_representation(self, comment):
+        data = super().to_representation(comment)
+        data['parent_comment'] = comment.parent_comment.id if comment.parent_comment else None
+    #     data['author'] = MinimalUserSerializer(comment.author).data
 
         return data
     
@@ -199,4 +216,52 @@ class CommentSerializer(serializers.ModelSerializer):
         read_only_fields = [
             'author', 'is_edited', 'interactions', 'created_at', 
             'updated_at'
+        ]
+
+class InteractionCreateSerializer(serializers.ModelSerializer):
+    type = serializers.ChoiceField(choices=InteractionChoices.choices)
+    post = serializers.PrimaryKeyRelatedField(
+        queryset=Post.objects.filter(is_active=True),
+        required=False, allow_null=True
+    )
+    comment = serializers.PrimaryKeyRelatedField(
+        queryset=Comment.objects.filter(is_active=True),
+        required=False, allow_null=True
+    )
+
+    def create(self, validated_data):
+        user = self.context['request'].user
+        return Interaction.objects.create(user=user, **validated_data)
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data['user'] = MinimalUserSerializer(instance.user).data
+        return data
+    
+    class Meta:
+        model = Interaction
+        fields = [
+            'id', 'type', 'user',
+            'post', 'comment'
+        ]
+        read_only_fields = [
+            'id', 'user'
+        ]
+
+class InteractionListSerializer(serializers.ModelSerializer):
+    reaction = serializers.SerializerMethodField()
+
+    def get_reaction(self, interaction):
+        return InteractionChoices(interaction.type).label.lower()
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data['user'] = MinimalUserSerializer(instance.user).data
+        return data
+
+    class Meta:
+        model = Interaction
+        fields = [
+            'id', 'user', 'reaction',
+            'created_at'
         ]

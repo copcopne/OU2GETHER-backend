@@ -41,16 +41,16 @@ admin_site = ou2getherAdminSite(name="myadmin")
 
 
 class UserAdmin(admin.ModelAdmin):
-    list_display = ['id', 'username', 'first_name', 'last_name', 'email']
+    list_display = ['id', 'username', 'first_name', 'last_name', 'email', 'member_id']
     search_fields = ['username', 'first_name', 'last_name']
     list_filter = ['is_active', 'is_staff']
     list_editable = ['username']
 
     def get_fields(self, request, obj = ...):
         if obj:
-            return ['username', 'first_name', 'last_name', 'email', 'is_active']
+            return ['username', 'first_name', 'last_name', 'email', 'is_active', 'member_id']
         else:
-            return ['username', 'first_name', 'last_name', 'email', 'role']
+            return ['username', 'first_name', 'last_name', 'email', 'role', 'member_id']
         
     def get_changeform_initial_data(self, request):
         return {'role': 'lecturer'}

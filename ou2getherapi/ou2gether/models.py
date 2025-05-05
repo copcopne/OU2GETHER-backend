@@ -33,7 +33,7 @@ class User(AbstractUser):
     is_verified = models.BooleanField(default=False)
 
 
-class PostChoices(models.IntegerChoices):
+class PostType(models.IntegerChoices):
     TEXT = 0, 'Text'
     IMAGE = 1, 'Image'
     POLL = 2, 'Poll'
@@ -41,9 +41,11 @@ class PostChoices(models.IntegerChoices):
 
 class Post(BaseModel):
     content = models.TextField()
-    type = models.PositiveSmallIntegerField(choices=PostChoices.choices)
+    type = models.PositiveSmallIntegerField(choices=PostType.choices)
     is_commendable = models.BooleanField(default=True)
     is_edited = models.BooleanField(default=False)
+    is_shared = models.BooleanField(default=False)
+    shared_post = models.ForeignKey("self", on_delete=models.SET_NULL, null=True, blank=True, related_name='shares')
     
     author = models.ForeignKey(User, on_delete=models.CASCADE)
     
@@ -92,7 +94,6 @@ class Interaction(BaseModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     post = models.ForeignKey(Post, on_delete=models.CASCADE, null=True, blank=True)
     comment = models.ForeignKey("Comment", on_delete=models.CASCADE , null=True, blank=True)
-    share = models.ForeignKey("Share", on_delete=models.CASCADE, null=True, blank=True)
 
     class Meta:
         constraints = [
@@ -103,11 +104,7 @@ class Interaction(BaseModel):
             models.UniqueConstraint(
                 fields=['user', 'comment'],
                 name='unique_user_comment_interaction'
-            ),
-            models.UniqueConstraint(
-                fields=['user', 'share'],
-                name='unique_user_share_interaction'
-            ),
+            )
         ]
 
 
@@ -125,13 +122,6 @@ class CommentMedia(MediaModel):
     media_type = models.CharField(max_length=10, choices=[('image','Image'),('video','Video')])
 
 
-class Share(BaseModel):
-    content = models.TextField()
-
-    author = models.ForeignKey(User, on_delete=models.CASCADE)
-    shared_post = models.ForeignKey(Post, on_delete=models.SET_NULL, null=True, blank=True, related_name='shares')
-
-
 class Device(BaseModel):
     device_token = models.CharField(max_length=255, unique=True)
 
@@ -142,7 +132,7 @@ class Notification(BaseModel):
     title = models.CharField(max_length=255)
     message = models.TextField()
     is_read = models.BooleanField(default=False)
-    target_type = models.CharField(max_length=10, choices=[('post', 'Post'), ('comment', 'Comment'), ('share', 'Share')])
+    target_type = models.CharField(max_length=10, choices=[('post', 'Post'), ('comment', 'Comment')])
     target_id = models.BigIntegerField()
 
     user = models.ForeignKey(User, on_delete=models.CASCADE)
@@ -151,19 +141,44 @@ class Notification(BaseModel):
         ordering = ['-created_at']
 
 
+class Conversation(BaseModel):
+    user1 = models.ForeignKey(User, on_delete=models.CASCADE, related_name='conversations_initiated')
+    user2 = models.ForeignKey(User, on_delete=models.CASCADE, related_name='conversations_received')
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user1', 'user2'],
+                name='unique_one_on_one_conversation'
+            ),
+            models.CheckConstraint(
+                check=~models.Q(user1=models.F('user2')),
+                name='no_self_conversation'
+            )
+        ]
+        ordering = ['-created_at']
+
+    @classmethod
+    def get_or_create_conversation(cls, user_a, user_b):
+        if user_a.id > user_b.id:
+            user_a, user_b = user_b, user_a
+        return cls.objects.get_or_create(user1=user_a, user2=user_b)
+
+
 class Message(BaseModel):
     content = models.TextField()
     is_read = models.BooleanField(default=False)
 
-    sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sender')
-    receiver = models.ForeignKey(User, on_delete=models.CASCADE, related_name='receiver')
+    sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_messages')
+    receiver = models.ForeignKey(User, on_delete=models.CASCADE, related_name='received_messages')
+    conversation = models.ForeignKey(Conversation, on_delete=models.CASCADE, related_name='messages')
 
     class Meta:
         ordering = ['-created_at']
 
 
 class MessageMedia(MediaModel):
-    message = models.ForeignKey(Message, on_delete=models.CASCADE, related_name='message_media')
+    message = models.OneToOneField(Message, on_delete=models.CASCADE, related_name='media')
 
 
 class Follow(BaseModel):

@@ -16,3 +16,6 @@ class PostPagination(PageNumberPagination):
 
 class CommentPagination(PageNumberPagination):
     page_size = 5
+
+class InteractPagination(PageNumberPagination):
+    page_size = 20
