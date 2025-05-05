@@ -35,13 +35,13 @@ class User(AbstractUser):
 
 class PostType(models.IntegerChoices):
     TEXT = 0, 'Text'
-    IMAGE = 1, 'Image'
+    MEDIA = 1, 'Media'
     POLL = 2, 'Poll'
 
 
 class Post(BaseModel):
     content = models.TextField()
-    type = models.PositiveSmallIntegerField(choices=PostType.choices)
+    post_type = models.PositiveSmallIntegerField(choices=PostType.choices, db_column='type')
     is_commendable = models.BooleanField(default=True)
     is_edited = models.BooleanField(default=False)
     is_shared = models.BooleanField(default=False)

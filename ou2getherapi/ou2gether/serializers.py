@@ -1,5 +1,9 @@
 from rest_framework import serializers
-from ou2gether.models import User, Post, PostType, Comment, InteractionChoices, PostMedia, PostPoll, PollOption, CommentMedia, Interaction
+from ou2gether.models import (
+    User, Post, Comment, Interaction, Notification, Message,
+    PostMedia, PostPoll, PollOption, CommentMedia, InteractionChoices, 
+    PostType, MessageMedia, Device, Conversation
+)
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -116,6 +120,28 @@ class PostSerializer(serializers.ModelSerializer):
     poll = serializers.SerializerMethodField()
     media = serializers.SerializerMethodField()
     interactions = serializers.SerializerMethodField()
+    my_interaction = serializers.SerializerMethodField()
+
+    def create(self, validated_data):
+        validated_data['author'] = self.context['request'].user
+
+        media_data = validated_data.pop('media', None)
+        poll_data = validated_data.pop('poll', None)
+
+        post = Post.objects.create(**validated_data)
+
+        if media_data and isinstance(media_data, dict) and 'file' in media_data:
+            PostMedia.objects.create(post=post, file=media_data['file'])
+        
+        if 'is_commendable' not in validated_data:
+            validated_data['is_commendable'] = True
+
+        if poll_data and isinstance(poll_data, dict):
+            poll = PostPollSerializer(data=poll_data)
+            poll.is_valid(raise_exception=True)
+            poll.save(post=post)
+
+        return post
 
     def get_poll(self, post):
         if hasattr(post, 'poll'):
@@ -124,10 +150,18 @@ class PostSerializer(serializers.ModelSerializer):
 
     def get_media(self, post):
         return PostMediaSerializer(post.media.all(), many=True).data
+    
+    def get_my_interaction(self, post):
+        user = self.context['request'].user
+        try:
+            interaction = post.interaction_set.get(user=user, is_active=True)
+            return InteractionChoices(interaction.type).label.lower()
+        except Interaction.DoesNotExist:
+            return None
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        data['type'] = PostType(instance.type).label.lower()
+        data['post_type'] = PostType(instance.post_type).label.lower()
         return data
 
     def get_interactions(self, post):
@@ -140,13 +174,13 @@ class PostSerializer(serializers.ModelSerializer):
     class Meta:
         model = Post
         fields = [
-            'id', 'author', 'type', 'is_commendable', 'is_shared',
+            'id', 'author', 'post_type', 'is_commendable', 'is_shared',
             'shared_post', 'content', 'is_edited', 'created_at', 'updated_at', 
-            'media', 'poll', 'interactions',
+            'media', 'poll', 'interactions','my_interaction'
         ]
         read_only_fields = [
-            'type', 'author','is_shared', 'shared_post', 'is_edited', 'interactions', 'created_at', 
-            'updated_at'
+            'post_type', 'author','is_shared', 'shared_post', 'is_edited', 'interactions', 'created_at', 
+            'updated_at', 'my_interaction'
         ]
 
 
@@ -164,6 +198,7 @@ class CommentSerializer(serializers.ModelSerializer):
     media = CommentMediaSerializer(many=False, required=False)
     interactions = serializers.SerializerMethodField()
     author = MinimalUserSerializer(read_only=True)
+    my_interaction = serializers.SerializerMethodField()
 
     def create(self, validated_data):
         validated_data['author'] = self.context['request'].user
@@ -195,7 +230,6 @@ class CommentSerializer(serializers.ModelSerializer):
     def to_representation(self, comment):
         data = super().to_representation(comment)
         data['parent_comment'] = comment.parent_comment.id if comment.parent_comment else None
-    #     data['author'] = MinimalUserSerializer(comment.author).data
 
         return data
     
@@ -205,16 +239,24 @@ class CommentSerializer(serializers.ModelSerializer):
             choice.label.lower(): qs.filter(type=choice.value).count()
             for choice in InteractionChoices
         }
+    
+    def get_my_interaction(self, comment):
+        user = self.context['request'].user
+        try:
+            interaction = comment.interaction_set.get(user=user, is_active=True)
+            return InteractionChoices(interaction.type).label.lower()
+        except Interaction.DoesNotExist:
+            return None
 
     class Meta:
         model = Comment
         fields = [
             'id', 'post', 'author', 'content',
-            'media', 'is_edited', 'interactions', 'created_at', 'updated_at', 
+            'media', 'is_edited', 'interactions', 'my_interaction', 'created_at', 'updated_at', 
             'parent_comment'
         ]
         read_only_fields = [
-            'author', 'is_edited', 'interactions', 'created_at', 
+            'author', 'is_edited', 'interactions', 'my_interaction', 'created_at', 
             'updated_at'
         ]
 
@@ -264,4 +306,66 @@ class InteractionListSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'user', 'reaction',
             'created_at'
+        ]
+
+
+class DeviceSerializer(serializers.ModelSerializer):
+
+    def create(self, validated_data):
+        user = self.context['request'].user
+        obj, _ = Device.objects.update_or_create(
+            device_token=validated_data['device_token'],
+            defaults={'user': user}
+        )
+        return obj
+
+    class Meta:
+        model = Device
+        fields = ['id', 'device_token']
+        read_only_fields = ['id']
+
+
+class NotificationSerializer(serializers.ModelSerializer):
+    user = MinimalUserSerializer(read_only=True)
+
+    class Meta:
+        model = Notification
+        fields = [
+            'id', 'title', 'message', 'is_read',
+            'target_type', 'target_id', 'user', 
+            'created_at'
+        ]
+
+
+class ConversationSerializer(serializers.ModelSerializer):
+    user1 = MinimalUserSerializer(read_only=True)
+    user2 = MinimalUserSerializer(read_only=True)
+
+    class Meta:
+        model = Conversation
+        fields = [
+            'id', 'user1', 'user2',
+            'created_at'
+        ]
+
+
+class MessageMediaSerializer(serializers.ModelSerializer):
+    file_url = serializers.CharField(source='file.url')
+
+    class Meta:
+        model = MessageMedia
+        fields = ['id', 'file_url', 'created_at']
+
+
+class MessageSerializer(serializers.ModelSerializer):
+    sender = MinimalUserSerializer(read_only=True)
+    receiver = MinimalUserSerializer(read_only=True)
+    media = MessageMediaSerializer(many=False, required=False)
+    conversation = ConversationSerializer(read_only=True)
+
+    class Meta:
+        model = Message
+        fields = [
+            'id','conversation', 'sender', 'receiver', 'content',
+            'media', 'is_read', 'created_at' 
         ]

@@ -59,9 +59,9 @@ class UserAdmin(admin.ModelAdmin):
         return ['role']
     
 class PostAdmin(admin.ModelAdmin):
-    list_display = ['id', 'content', 'type', 'is_commendable', 'is_edited']
+    list_display = ['id', 'content', 'post_type', 'is_commendable', 'is_edited']
     search_fields = ['content']
-    list_filter = ['type', 'is_commendable']
+    list_filter = ['post_type', 'is_commendable']
     list_editable = ['content']
     readonly_fields = ['created_at', 'updated_at']
 
