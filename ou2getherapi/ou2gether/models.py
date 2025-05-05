@@ -63,6 +63,7 @@ class PostMedia(MediaModel):
 
 class PostPoll(BaseModel):
     question = models.CharField(max_length=255)
+    
 
     post = models.OneToOneField(Post, on_delete=models.CASCADE, related_name='poll')
 

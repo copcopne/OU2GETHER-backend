@@ -4,6 +4,7 @@ from cloudinary.uploader import upload
 from rest_framework.response import Response
 from ou2gether import models
 from ou2gether import serializers, perms, paginators
+import json
 
 
 def _handle_media_upload(files, comment_obj=None, post_obj=None):
@@ -142,7 +143,7 @@ class PostViewSet(viewsets.ViewSet,generics.ListCreateAPIView):
     serializer_class = serializers.PostSerializer
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = paginators.PostPagination
-    parser_classes = [parsers.MultiPartParser]
+    parser_classes = [parsers.MultiPartParser, parsers.JSONParser]
 
     def get_permissions(self):
         if self.action == 'retrieve':
@@ -162,24 +163,45 @@ class PostViewSet(viewsets.ViewSet,generics.ListCreateAPIView):
         has_media = bool(files)
 
         if has_poll and has_media:
-            return Response({'detail': 'Cannot create a post with both poll and media.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {'detail': 'Cannot create a post with both poll and media.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        poll_data = None
+        if has_poll:
+            try:
+                poll_data = json.loads(post_data.pop('poll')[0])
+            except json.JSONDecodeError:
+                return Response({'detail': 'Invalid poll JSON.'}, status=status.HTTP_400_BAD_REQUEST)
 
         post_data['author'] = request.user.id
-        if has_poll:
+        if poll_data:
             t = models.PostType.POLL
         elif has_media:
             t = models.PostType.MEDIA
         else:
             t = models.PostType.TEXT
 
-        serializer = self.get_serializer(data=post_data)
+        serializer = self.get_serializer(data=post_data, context={'request': request})
         serializer.is_valid(raise_exception=True)
         post = serializer.save(author=request.user, post_type=t)
 
         if has_media:
             _handle_media_upload(files, post_obj=post)
 
-        return Response(serializers.PostSerializer(post).data, status=status.HTTP_201_CREATED)
+        if poll_data:
+            poll = models.PostPoll.objects.create(
+                post=post,
+                question=poll_data.get('question', '')
+            )
+            for opt in poll_data.get('options', []):
+                opt_serializer = serializers.PollOptionSerializer(data=opt)
+                opt_serializer.is_valid(raise_exception=True)
+                opt_serializer.save(post_poll=poll)
+
+        return Response(serializers.PostSerializer(post, context={'request': request}).data,
+                        status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=['patch'], permission_classes=[perms.PostOwner])
     def update_post(self, request, pk):
@@ -197,7 +219,7 @@ class PostViewSet(viewsets.ViewSet,generics.ListCreateAPIView):
             elif k in ['content', 'is_commendable']:
                 setattr(post, k, v)
         post.save()
-        return Response(self.get_serializer(post).data)
+        return Response(self.get_serializer(post, context={'request': request}).data)
     
     @action(detail=True, methods=['post'], url_path='update_post/upload_media', permission_classes=[perms.PostOwner])
     def upload_media(self, request, pk):
@@ -218,9 +240,9 @@ class PostViewSet(viewsets.ViewSet,generics.ListCreateAPIView):
         post.save()
         post.refresh_from_db()
 
-        return Response(serializers.PostSerializer(post).data, status=status.HTTP_200_OK)
+        return Response(serializers.PostSerializer(post, context={'request': request}).data, status=status.HTTP_200_OK)
     
-    @action(detail=True, methods=['delete'], url_path=r'update_post/(?P<media_id>\d+)', permission_classes=[perms.PostOwner])
+    @action(detail=True, methods=['delete'], url_path=r'update_post/media/(?P<media_id>\d+)', permission_classes=[perms.PostOwner])
     def delete_media(self, request, pk, media_id):
         post = generics.get_object_or_404(models.Post, pk=pk, is_active=True)
         if request.user != post.author:
@@ -232,6 +254,10 @@ class PostViewSet(viewsets.ViewSet,generics.ListCreateAPIView):
                             status=status.HTTP_400_BAD_REQUEST)
 
         media = generics.get_object_or_404(models.PostMedia, pk=media_id, post=post, is_active=True)
+        if media.is_active == False:
+            return Response({"detail":"This media has already been deleted."}, 
+                            status=status.HTTP_400_BAD_REQUEST)
+        
         media.is_active = False
         media.save()
         media.refresh_from_db()
@@ -240,7 +266,7 @@ class PostViewSet(viewsets.ViewSet,generics.ListCreateAPIView):
         post.save()
         post.refresh_from_db()
 
-        return Response(serializers.PostMediaSerializer(media).data, status=status.HTTP_200_OK)
+        return Response({"detail": "Delete successfully."}, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['post'], permission_classes=[perms.IsNotRestricted])
     def share(self, request, pk):

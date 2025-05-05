@@ -117,7 +117,8 @@ class PostPollSerializer(serializers.ModelSerializer):
 
 class PostSerializer(serializers.ModelSerializer):
     author = MinimalUserSerializer(read_only=True)
-    poll = serializers.SerializerMethodField()
+    # poll = serializers.SerializerMethodField()
+    poll = PostPollSerializer(many=False, required=False)
     media = serializers.SerializerMethodField()
     interactions = serializers.SerializerMethodField()
     my_interaction = serializers.SerializerMethodField()
@@ -143,13 +144,13 @@ class PostSerializer(serializers.ModelSerializer):
 
         return post
 
-    def get_poll(self, post):
-        if hasattr(post, 'poll'):
-            return PostPollSerializer(post.poll, context=self.context).data
-        return None
+    # def get_poll(self, post):
+    #     if hasattr(post, 'poll'):
+    #         return PostPollSerializer(post.poll, context=self.context).data
+    #     return None
 
     def get_media(self, post):
-        return PostMediaSerializer(post.media.all(), many=True).data
+        return PostMediaSerializer(post.media.filter(is_active=True).all(), many=True).data
     
     def get_my_interaction(self, post):
         user = self.context['request'].user
