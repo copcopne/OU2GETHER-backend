@@ -6,7 +6,6 @@ from ou2gether import models
 from ou2gether import serializers, perms, paginators
 import json
 from django.utils import timezone
-from pytz import timezone as pytz_timezone
 
 
 def _handle_media_upload(files, comment_obj=None, post_obj=None):
@@ -98,8 +97,7 @@ class UserViewSet(viewsets.ViewSet, generics.ListAPIView):
             if current_user.role == models.Role.ADMIN and int(user_data.get('role', 2)) == models.Role.LECTURER:
                 user_data['password'] = 'ou@123'
                 user_data['must_change_password'] = True
-                vn_now = timezone.now().astimezone(pytz_timezone('Asia/Ho_Chi_Minh'))
-                user_data['set_password_deadline'] = vn_now + timezone.timedelta(hours=24)
+                user_data['set_password_deadline'] = timezone.now() + timezone.timedelta(hours=24)
             else:
                 return Response({'detail': 'You do not have permission to create this user.'}, status=status.HTTP_403_FORBIDDEN)
             
@@ -202,8 +200,7 @@ class UserViewSet(viewsets.ViewSet, generics.ListAPIView):
 
         user.must_change_password = True
         user.is_locked = False
-        vn_now = timezone.now().astimezone(pytz_timezone('Asia/Ho_Chi_Minh'))
-        user.reset_password_deadline = vn_now + timezone.timedelta(hours=hours)
+        user.reset_password_deadline = timezone.now() + timezone.timedelta(hours=hours)
         user.save()
         return Response({'detail': 'Password reset deadline set successfully.'}, status=status.HTTP_200_OK)
     
@@ -355,19 +352,27 @@ class PostViewSet(viewsets.ViewSet,generics.ListAPIView):
 
     @action(detail=True, methods=['post'], permission_classes=[perms.IsNotRestricted])
     def share(self, request, pk):
+        print(timezone.localtime(timezone.now()))
         shared_post = generics.get_object_or_404(models.Post, pk=pk, is_active=True)
+
+        if request.data.get('media') or request.data.get('poll'):
+            return Response(
+                {'detail': 'Cannot create a shared post with media or poll.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
     
-        serializer = self.get_serializer(data=request.data)
+        serializer = self.get_serializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
+
 
         share = serializer.save(
             author=request.user,
-            post_type=PostType.TEXT,
+            post_type=models.PostType.TEXT,
             is_shared=True,
             shared_post=shared_post
         )
 
-        return Response(self.get_serializer(share).data, status=status.HTTP_201_CREATED)
+        return Response(serializers.PostSerializer(share, context={'request': request}).data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=['delete'], permission_classes=[perms.PostOwner, permissions.IsAdminUser])
     def delete_post(self, request, pk):

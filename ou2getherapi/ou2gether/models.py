@@ -40,8 +40,7 @@ class User(AbstractUser, BaseModel):
 
     def check_password_deadline(self):
         if self.must_change_password and self.password_set_deadline:
-            vn_now = timezone.now().astimezone(pytz_timezone('Asia/Ho_Chi_Minh'))
-            if vn_now > self.password_set_deadline:
+            if timezone.now() > self.password_set_deadline:
                 self.is_locked = True
                 self.save()
 

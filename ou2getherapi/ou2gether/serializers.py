@@ -146,11 +146,15 @@ class PostSerializer(serializers.ModelSerializer):
     # poll = serializers.SerializerMethodField()
     poll = PostPollSerializer(many=False, required=False)
     media = serializers.SerializerMethodField()
+    is_commendable = serializers.BooleanField(required=False, default=True)
     interactions = serializers.SerializerMethodField()
     my_interaction = serializers.SerializerMethodField()
 
     def create(self, validated_data):
         validated_data['author'] = self.context['request'].user
+
+        if 'is_commendable' not in validated_data:
+            validated_data['is_commendable'] = True
 
         media_data = validated_data.pop('media', None)
         poll_data = validated_data.pop('poll', None)
@@ -160,8 +164,6 @@ class PostSerializer(serializers.ModelSerializer):
         if media_data and isinstance(media_data, dict) and 'file' in media_data:
             PostMedia.objects.create(post=post, file=media_data['file'])
         
-        if 'is_commendable' not in validated_data:
-            validated_data['is_commendable'] = True
 
         if poll_data and isinstance(poll_data, dict):
             poll = PostPollSerializer(data=poll_data)
