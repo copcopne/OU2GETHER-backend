@@ -1,6 +1,8 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from cloudinary.models import CloudinaryField
+from django.utils import timezone
+from pytz import timezone as pytz_timezone
 
 class BaseModel(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
@@ -24,13 +26,24 @@ class Role(models.IntegerChoices):
     STUDENT = 2, 'Student'
     
 
-class User(AbstractUser):
+class User(AbstractUser, BaseModel):
     member_id = models.CharField(max_length=12, unique=True)
-    role = models.PositiveSmallIntegerField(choices=Role.choices, default=Role.ADMIN)
+    role = models.PositiveSmallIntegerField(choices=Role.choices, default=Role.STUDENT)
     bio = models.TextField(null=True, blank=True)
     avatar = CloudinaryField()
     cover = CloudinaryField(null=True, blank=True)
     is_verified = models.BooleanField(default=False)
+
+    must_change_password = models.BooleanField(default=False)
+    password_set_deadline = models.DateTimeField(null=True, blank=True)
+    is_locked = models.BooleanField(default=False)
+
+    def check_password_deadline(self):
+        if self.must_change_password and self.password_set_deadline:
+            vn_now = timezone.now().astimezone(pytz_timezone('Asia/Ho_Chi_Minh'))
+            if vn_now > self.password_set_deadline:
+                self.is_locked = True
+                self.save()
 
 
 class PostType(models.IntegerChoices):
@@ -63,7 +76,7 @@ class PostMedia(MediaModel):
 
 class PostPoll(BaseModel):
     question = models.CharField(max_length=255)
-    
+    end_time = models.DateTimeField()
 
     post = models.OneToOneField(Post, on_delete=models.CASCADE, related_name='poll')
 

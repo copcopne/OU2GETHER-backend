@@ -7,18 +7,6 @@ from ou2gether.models import (
 
 
 class UserSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = User
-        fields = [
-            'id', 'username', 'first_name', 'last_name', 
-            'member_id', 'avatar', 'cover', 'bio', 
-            'is_verified'
-        ]
-        extra_kwargs = {
-            'password': {
-                'write_only': True
-            }
-        }
     
     def to_representation(self, instance):
         data = super().to_representation(instance)
@@ -49,6 +37,36 @@ class UserSerializer(serializers.ModelSerializer):
         instance.save()
 
         return instance
+    
+    # def validate_username(self, value):
+    #     if User.objects.filter(username=value).exists():
+    #         raise serializers.ValidationError("Username already exists.")
+    #     return value
+    
+    # def validate_memeber_id(self, value):
+    #     if User.objects.filter(member_id=value).exists():
+    #         raise serializers.ValidationError("Member ID already exists.")
+    #     return value
+    
+    class Meta:
+        model = User
+        fields = [
+            'id', 'email', 'username', 'first_name', 'last_name', 'password',
+            'member_id', 'avatar', 'cover', 'bio', 'role'
+            'must_change_password', 'password_set_deadline', 'is_locked', 
+            'is_verified'
+        ]
+        extra_kwargs = {
+            'password': {'required': True, 'write_only': True},
+            'member_id': {'required': True},
+        }
+        read_only_fields = [
+            'id', 'is_verified'
+        ]
+        write_only_fields = [
+            'password', 'member_id', 'must_change_password', 
+            'password_set_deadline', 'is_locked'
+        ]
 
 
 class MinimalUserSerializer(serializers.ModelSerializer):
@@ -67,11 +85,19 @@ class PostMediaSerializer(serializers.ModelSerializer):
 
 
 class PollOptionSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(required=False)
+    is_voted = serializers.SerializerMethodField()
     votes_count = serializers.IntegerField(source='poll_votes.count', read_only=True)
+
+    def get_is_voted(self, option):
+        user = self.context['request'].user
+        if user.is_authenticated:
+            return option.poll_votes.filter(user=user).exists()
+        return False
 
     class Meta:
         model = PollOption
-        fields = ['id', 'content', 'votes_count']
+        fields = ['id', 'content', 'votes_count', 'is_voted']
 
 
 class PostPollSerializer(serializers.ModelSerializer):
@@ -95,7 +121,7 @@ class PostPollSerializer(serializers.ModelSerializer):
             option_id = option_data.get('id', None)
             if option_id:
                 try:
-                    option = instance.polloption_set.get(id=option_id)
+                    option = instance.options.get(id=option_id)
                     option.content = option_data.get('content', option.content)
                     option.save()
                     new_option_ids.append(option_id)
@@ -105,7 +131,7 @@ class PostPollSerializer(serializers.ModelSerializer):
                 new_option = PollOption.objects.create(post_poll=instance, **option_data)
                 new_option_ids.append(new_option.id)
 
-        instance.polloption_set.exclude(id__in=new_option_ids).delete()
+        instance.options.exclude(id__in=new_option_ids).delete()
 
         return instance
     

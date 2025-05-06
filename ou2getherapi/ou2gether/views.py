@@ -5,25 +5,27 @@ from rest_framework.response import Response
 from ou2gether import models
 from ou2gether import serializers, perms, paginators
 import json
+from django.utils import timezone
+from pytz import timezone as pytz_timezone
 
 
 def _handle_media_upload(files, comment_obj=None, post_obj=None):
     for file in files:
-        type = 'image' if file.content_type.startswith('image/') else 'video'
-        upload_result = upload(file, resource_type=type)
+        media_type = 'image' if file.content_type.startswith('image/') else 'video'
+        upload_result = upload(file, resource_type=media_type)
         path = f"{upload_result['resource_type']}/upload/v{upload_result['version']}/{upload_result['public_id']}.{upload_result['format']}"
         if comment_obj:
             models.CommentMedia.objects.create(
                 comment=comment_obj,
                 file=path,
-                media_type=type
+                media_type=media_type
             )
             comment_obj.refresh_from_db()
         else:
             models.PostMedia.objects.create(
                 post=post_obj,
                 file=path,
-                media_type=type
+                media_type=media_type
             )
             post_obj.refresh_from_db()
 
@@ -70,13 +72,45 @@ def _get_followers_or_following(user, is_follower=True):
     ).select_related('follower' if is_follower else 'following')
 
 
-class UserViewSet(viewsets.ViewSet, generics.CreateAPIView):
+class UserViewSet(viewsets.ViewSet, generics.ListAPIView):
     queryset = models.User.objects.filter(is_active=True)
     serializer_class = serializers.UserSerializer
     parser_classes = [parsers.MultiPartParser]
     pagination_class = paginators.UserPagination
 
-    @action(methods=['get', 'patch'], url_path='current-user', detail=False, permission_classes = [permissions.IsAuthenticated])
+    def get_queryset(self):
+        queryset =  super().get_queryset()
+        params = self.request.query_params
+
+        keyword = params.get('kw')
+        if keyword:
+            queryset = queryset.filter(Q(first_name__icontains=keyword) | Q(last_name__icontains=keyword))
+        return queryset
+
+    @action(detail=False, methods=['post'], url_path='register')
+    def register(self, request):
+        user_data = request.data.copy()
+        user_data['is_active'] = True
+        user_data['is_verified'] = False
+
+        current_user = request.user
+        if current_user:
+            if current_user.role == models.Role.ADMIN and int(user_data.get('role', 2)) == models.Role.LECTURER:
+                user_data['password'] = 'ou@123'
+                user_data['must_change_password'] = True
+                vn_now = timezone.now().astimezone(pytz_timezone('Asia/Ho_Chi_Minh'))
+                user_data['set_password_deadline'] = vn_now + timezone.timedelta(hours=24)
+            else:
+                return Response({'detail': 'You do not have permission to create this user.'}, status=status.HTTP_403_FORBIDDEN)
+            
+        serializer = serializers.UserSerializer(data=user_data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+
+        return Response(serializers.UserSerializer(user).data, 
+                        status=status.HTTP_201_CREATED)
+
+    @action(methods=['get', 'patch'], url_path='current-user', detail=False, permission_classes = [perms.IsAuthenticated])
     def get_current_user(self, request):
         u = request.user
 
@@ -90,14 +124,14 @@ class UserViewSet(viewsets.ViewSet, generics.CreateAPIView):
 
         return Response(serializers.UserSerializer(u).data)
     
-    @action(methods=['get'], detail=False, url_path='current-user/followers', permission_classes=[permissions.IsAuthenticated])
+    @action(methods=['get'], detail=False, url_path='current-user/followers', permission_classes=[perms.IsAuthenticated])
     def current_user_followers(self, request):
         u = request.user
         followers = _get_followers_or_following(u, is_follower=True)
         serializer = serializers.FollowSerializer(followers, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
     
-    @action(methods=['get'], detail=False, url_path='current-user/following', permission_classes=[permissions.IsAuthenticated])
+    @action(methods=['get'], detail=False, url_path='current-user/following', permission_classes=[perms.IsAuthenticated])
     def current_user_following(self, request):
         u = request.user
         following = _get_followers_or_following(u, is_follower=False)
@@ -137,13 +171,60 @@ class UserViewSet(viewsets.ViewSet, generics.CreateAPIView):
         serializer = serializers.FollowSerializer(following, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
     
+    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAdminUser])
+    def unverified_users(self, request):
+        unverified_users = models.User.objects.filter(is_verified=False, is_active=True)
+        serializer = serializers.UserSerializer(unverified_users, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAdminUser])
+    def verify(self, request, pk):
+        user = generics.get_object_or_404(models.User, pk=pk, is_active=True)
+        if user.is_verified:
+            return Response({'detail': 'User is already verified.'}, status=status.HTTP_400_BAD_REQUEST)
 
-class PostViewSet(viewsets.ViewSet,generics.ListCreateAPIView):
+        user.is_verified = True
+        user.save()
+        return Response({'detail': 'User verified successfully.'}, status=status.HTTP_200_OK)
+    
+    @action(detail=True, methods=['post'], url_path=r'reset_password_deadline/(?P<hours>\d+)', permission_classes=[permissions.IsAdminUser])
+    def reset_password_deadline(self, request, pk):
+        user = generics.get_object_or_404(models.User, pk=pk, is_active=True)
+        if user.role != models.Role.LECTURER or user.must_change_password != True or user.is_locked != True:
+            return Response({'detail': "User does not need to reset password deadline."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            hours = int(request.parser_context['kwargs']['hours'])
+            if hours < 0:
+                raise ValueError
+        except (ValueError, TypeError):
+            return Response({'detail': 'Invalid hours value.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        user.must_change_password = True
+        user.is_locked = False
+        vn_now = timezone.now().astimezone(pytz_timezone('Asia/Ho_Chi_Minh'))
+        user.reset_password_deadline = vn_now + timezone.timedelta(hours=hours)
+        user.save()
+        return Response({'detail': 'Password reset deadline set successfully.'}, status=status.HTTP_200_OK)
+    
+
+class PostViewSet(viewsets.ViewSet,generics.ListAPIView):
     queryset = models.Post.objects.filter(is_active=True)
     serializer_class = serializers.PostSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [perms.IsAuthenticated]
     pagination_class = paginators.PostPagination
     parser_classes = [parsers.MultiPartParser, parsers.JSONParser]
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        params = self.request.query_params
+        if params.get('poll'):
+            queryset = queryset.filter(post_type=models.PostType.POLL)
+        if params.get('following'):
+            followed_user_ids = models.Follow.objects.filter(follower=self.request.user).values_list('following_id', flat=True)
+            queryset = queryset.filter(author__in=followed_user_ids)
+
+        return queryset
 
     def get_permissions(self):
         if self.action == 'retrieve':
@@ -213,13 +294,17 @@ class PostViewSet(viewsets.ViewSet,generics.ListCreateAPIView):
         post.is_edited = True
         for k, v in request.data.items():
             if k =='poll':
-                serializer = serializers.PostPollSerializer(instance=post.poll, data=v)
-                serializer.is_valid(raise_exception=True)
-                serializer.save()
+                try:
+                    poll_data = json.loads(v)
+                    serializer = serializers.PostPollSerializer(instance=post.poll, data=poll_data)
+                    serializer.is_valid(raise_exception=True)
+                    serializer.save()
+                except json.JSONDecodeError:
+                    return Response({'detail': 'Invalid poll JSON.'}, status=status.HTTP_400_BAD_REQUEST)
             elif k in ['content', 'is_commendable']:
                 setattr(post, k, v)
         post.save()
-        return Response(self.get_serializer(post, context={'request': request}).data)
+        return Response(self.get_serializer(post, context={'request': request}).data, status=status.HTTP_200_OK)
     
     @action(detail=True, methods=['post'], url_path='update_post/upload_media', permission_classes=[perms.PostOwner])
     def upload_media(self, request, pk):
@@ -240,7 +325,7 @@ class PostViewSet(viewsets.ViewSet,generics.ListCreateAPIView):
         post.save()
         post.refresh_from_db()
 
-        return Response(serializers.PostSerializer(post, context={'request': request}).data, status=status.HTTP_200_OK)
+        return Response(self.get_serializer(post, context={'request': request}).data, status=status.HTTP_200_OK)
     
     @action(detail=True, methods=['delete'], url_path=r'update_post/media/(?P<media_id>\d+)', permission_classes=[perms.PostOwner])
     def delete_media(self, request, pk, media_id):
@@ -266,7 +351,7 @@ class PostViewSet(viewsets.ViewSet,generics.ListCreateAPIView):
         post.save()
         post.refresh_from_db()
 
-        return Response({"detail": "Delete successfully."}, status=status.HTTP_200_OK)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=True, methods=['post'], permission_classes=[perms.IsNotRestricted])
     def share(self, request, pk):
@@ -292,7 +377,7 @@ class PostViewSet(viewsets.ViewSet,generics.ListCreateAPIView):
         
         post.is_active = False
         post.save()
-        return Response({"detail":"Post deleted successfully."}, status=status.HTTP_200_OK)
+        return Response(status=status.HTTP_204_NO_CONTENT)
     
     @action(detail=True, methods=['get'], permission_classes=[perms.IsNotRestricted])
     def comments(self, request, pk):
@@ -330,12 +415,33 @@ class PostViewSet(viewsets.ViewSet,generics.ListCreateAPIView):
     def interact(self, request, pk, reaction=None):
         post = generics.get_object_or_404(models.Post, pk=pk, is_active=True)
         return _handle_interact(request, post, reaction, is_post=True)
+    
+    @action(detail=True, methods=['post'], url_path='vote', permission_classes=[perms.IsNotRestricted])
+    def vote(self, request, pk, option_id):
+        post = generics.get_object_or_404(models.Post, pk=pk, is_active=True)
+        if post.post_type != models.PostType.POLL:
+            return Response({"detail":"This post is not a poll."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        option_ids = request.data.get('option_ids', [])
+        if not isinstance(option_ids, list):
+            return Response({"detail": "option_ids must be a list object."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        for oid in option_ids:
+            option = generics.get_object_or_404(models.PollOption, pk=oid, post_poll=post.poll)
+            vote_qs = models.PollVote.objects.filter(user=request.user, poll_option=option)
+            if vote_qs.exists():
+                vote_qs.delete()
+            else:
+                models.PollVote.objects.create(user=request.user, poll_option=option)
+            
+        return Response(self.get_serializer(post, context={'request': request}).data, 
+                        status=status.HTTP_200_OK)
 
 
 class CommentViewSet(viewsets.ViewSet):
     queryset = models.Comment.objects.filter(is_active=True)
     serializer_class = serializers.CommentSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [perms.IsAuthenticated]
     pagination_class = paginators.CommentPagination
 
     @action(detail=True, methods=['patch'], permission_classes=[perms.CommentOwner])
@@ -360,7 +466,7 @@ class CommentViewSet(viewsets.ViewSet):
         
         comment.is_active = False
         comment.save()
-        return Response({"detail":"Comment deleted successfully."}, status=status.HTTP_200_OK)
+        return Response(status=status.HTTP_204_NO_CONTENT)
     
     @action(detail=True, methods=['post'], permission_classes=[perms.IsNotRestricted])
     def reply(self, request, pk):
@@ -394,7 +500,7 @@ class CommentViewSet(viewsets.ViewSet):
 
 class NotificationViewSet(viewsets.ViewSet, generics.ListAPIView):
     queryset = models.Notification.objects.filter(is_active=True)
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [perms.IsAuthenticated]
     serializer_class = serializers.NotificationSerializer
     pagination_class = paginators.NotificationPagination
 
@@ -410,7 +516,7 @@ class NotificationViewSet(viewsets.ViewSet, generics.ListAPIView):
 class DeviceViewSet(viewsets.ViewSet, generics.ListCreateAPIView):
     queryset = models.Device.objects.filter(is_active=True)
     serializer_class = serializers.DeviceSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [perms.IsAuthenticated]
 
     def get_queryset(self):
         return self.queryset.filter(user=self.request.user)
@@ -419,4 +525,4 @@ class DeviceViewSet(viewsets.ViewSet, generics.ListCreateAPIView):
 class ConversationViewSet(viewsets.ViewSet, generics.ListCreateAPIView):
     queryset = models.Conversation.objects.filter(is_active=True)
     serializer_class = serializers.ConversationSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [perms.IsAuthenticated]

@@ -1,6 +1,10 @@
 from rest_framework import permissions
 from ou2gether.models import Post, Comment, Block
 
+class IsAuthenticated(permissions.IsAuthenticated):
+    def has_permission(self, request, view):
+        return super().has_permission(request, view) and request.user.is_verified
+
 class CommentOwner(permissions.IsAuthenticated):
     def has_object_permission(self, request, view, comment):
         return super().has_object_permission(request, view, comment) and request.user == comment.author
