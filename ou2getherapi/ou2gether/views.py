@@ -256,6 +256,9 @@ class PostViewSet(viewsets.ViewSet,generics.ListAPIView):
                         return Response({'detail': 'Poll end time must be in the future.'}, status=status.HTTP_400_BAD_REQUEST)
             except json.JSONDecodeError:
                 return Response({'detail': 'Invalid poll JSON.'}, status=status.HTTP_400_BAD_REQUEST)
+            except ValueError:
+                return Response({'detail': 'end_time must be ISO datetime string.'},
+                        status=status.HTTP_400_BAD_REQUEST)
 
         post_data['author'] = request.user.id
         if poll_data:
@@ -273,15 +276,17 @@ class PostViewSet(viewsets.ViewSet,generics.ListAPIView):
             _handle_media_upload(files, post_obj=post)
 
         if poll_data:
-            poll = models.PostPoll.objects.create(
-                post=post,
-                question=poll_data.get('question', ''),
-                end_time=poll_data.get('end_time')
-            )
-            for opt in poll_data.get('options', []):
-                opt_serializer = serializers.PollOptionSerializer(data=opt)
-                opt_serializer.is_valid(raise_exception=True)
-                opt_serializer.save(post_poll=poll)
+            poll_data['post'] = post.id
+            poll_serializer = serializers.PostPollSerializer(data=poll_data)
+            poll_serializer.is_valid(raise_exception=True)
+            poll = poll_serializer.save()
+            post.poll = poll
+            post.save()
+
+            # for opt in poll_data.get('options', []):
+            #     opt_serializer = serializers.PollOptionSerializer(data=opt)
+            #     opt_serializer.is_valid(raise_exception=True)
+            #     opt_serializer.save(post_poll=poll)
 
         return Response(serializers.PostSerializer(post, context={'request': request}).data,
                         status=status.HTTP_201_CREATED)
