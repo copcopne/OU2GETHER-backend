@@ -137,7 +137,7 @@ class PostPollSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = PostPoll
-        fields = ['id', 'question', 'options']
+        fields = ['id', 'question', 'options', 'end_time']
 
 
 

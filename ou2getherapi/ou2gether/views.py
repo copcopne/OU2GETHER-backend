@@ -250,6 +250,10 @@ class PostViewSet(viewsets.ViewSet,generics.ListAPIView):
         if has_poll:
             try:
                 poll_data = json.loads(post_data.pop('poll')[0])
+                if poll_data.get('end_time'):
+                    poll_data['end_time'] = timezone.datetime.fromisoformat(poll_data['end_time'])
+                    if poll_data['end_time'] < timezone.now():
+                        return Response({'detail': 'Poll end time must be in the future.'}, status=status.HTTP_400_BAD_REQUEST)
             except json.JSONDecodeError:
                 return Response({'detail': 'Invalid poll JSON.'}, status=status.HTTP_400_BAD_REQUEST)
 
