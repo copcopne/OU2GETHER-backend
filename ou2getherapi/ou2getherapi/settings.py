@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-%pkzge&unj70m@w$(h(r9eygg+4^^36=8nwk1)nc*z6jczuw*4
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['copcopne.pythonanywhere.com']
+ALLOWED_HOSTS = ['copcopne.pythonanywhere.com', '127.0.0.1']
 
 
 # Application definition
@@ -37,6 +37,10 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'ou2gether.apps.Ou2GetherConfig',
+    'oauth2_provider',
+    'rest_framework',
+    'drf_yasg'
 ]
 
 MIDDLEWARE = [
@@ -47,6 +51,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'ou2gether.middleware.password_check.PasswordDeadlineCheckMiddleware',
 ]
 
 ROOT_URLCONF = 'ou2getherapi.urls'
@@ -75,10 +80,33 @@ WSGI_APPLICATION = 'ou2getherapi.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': 'ou2gether',
+        'USER': 'root',
+        'PASSWORD': 'root',
+        'HOST': ''
     }
 }
+
+
+import pymysql
+pymysql.install_as_MySQLdb()
+
+
+AUTH_USER_MODEL = 'ou2gether.User'
+
+
+import cloudinary
+import cloudinary.uploader
+from cloudinary.utils import cloudinary_url
+
+# Configuration
+cloudinary.config(
+    cloud_name = "dq3dtj8lz",
+    api_key = "582527119715667",
+    api_secret = "zWDS8SbqF_hr_aDUMyS0PKiyWK8",
+    secure=True
+)
 
 
 # Password validation
@@ -103,13 +131,12 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/5.1/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
-
-TIME_ZONE = 'UTC'
-
 USE_I18N = True
-
 USE_TZ = True
+
+LANGUAGE_CODE = 'vi'
+TIME_ZONE = 'Asia/Ho_Chi_Minh'
+
 
 
 # Static files (CSS, JavaScript, Images)
@@ -123,3 +150,11 @@ STATIC_ROOT = "/home/copcopne/staticfiles" # Cấu hình pythonanywhere
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'oauth2_provider.contrib.rest_framework.OAuth2Authentication',
+    ]
+}
+FILE_UPLOAD_MAX_MEMORY_SIZE = 25 * 1024 * 1024
