@@ -111,6 +111,7 @@ class PostPollSerializer(serializers.ModelSerializer):
         return poll
 
     def update(self, instance, validated_data):
+        post = serializers.PrimaryKeyRelatedField(queryset=Post.objects.filter(is_active=True), write_only=True)
         options_data = validated_data.pop('options', [])
 
         instance.question = validated_data.get('question', instance.question)
@@ -137,7 +138,7 @@ class PostPollSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = PostPoll
-        fields = ['id', 'question', 'options', 'end_time']
+        fields = ['id', 'post', 'question', 'options', 'end_time']
 
 
 
