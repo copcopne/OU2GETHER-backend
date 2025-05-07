@@ -4,6 +4,7 @@ from cloudinary.uploader import upload
 from rest_framework.response import Response
 from ou2gether import models
 from ou2gether import serializers, perms, paginators
+from django.utils.dateparse import parse_datetime
 import json
 from django.utils import timezone
 
@@ -250,15 +251,27 @@ class PostViewSet(viewsets.ViewSet,generics.ListAPIView):
         if has_poll:
             try:
                 poll_data = json.loads(post_data.pop('poll')[0])
-                if poll_data.get('end_time'):
-                    poll_data['end_time'] = timezone.datetime.fromisoformat(poll_data['end_time'])
-                    if poll_data['end_time'] < timezone.now():
-                        return Response({'detail': 'Poll end time must be in the future.'}, status=status.HTTP_400_BAD_REQUEST)
             except json.JSONDecodeError:
                 return Response({'detail': 'Invalid poll JSON.'}, status=status.HTTP_400_BAD_REQUEST)
-            except ValueError:
+
+            raw_end_time = poll_data.get('end_time')
+            if not raw_end_time:
+                return Response({'detail': 'Poll end_time is required.'},
+                                status=status.HTTP_400_BAD_REQUEST)
+
+            dt = parse_datetime(raw_end_time)
+            if not dt:
                 return Response({'detail': 'end_time must be ISO datetime string.'},
-                        status=status.HTTP_400_BAD_REQUEST)
+                                status=status.HTTP_400_BAD_REQUEST)
+
+            if timezone.is_naive(dt):
+                dt = timezone.make_aware(dt, timezone.get_current_timezone())
+
+            if dt < timezone.now():
+                return Response({'detail': 'Poll end time must be in the future.'},
+                                status=status.HTTP_400_BAD_REQUEST)
+
+            poll_data['end_time'] = dt
 
         post_data['author'] = request.user.id
         if poll_data:
