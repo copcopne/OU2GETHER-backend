@@ -86,6 +86,17 @@ class UserViewSet(viewsets.ViewSet, generics.ListAPIView):
         if keyword:
             queryset = queryset.filter(Q(first_name__icontains=keyword) | Q(last_name__icontains=keyword))
         return queryset
+    
+    def get_permissions(self):
+        if self.action == 'retrieve':
+            return [perms.IsNotRestricted()]
+        return super().get_permissions()
+    
+    def retrieve(self, request, pk):
+        user = generics.get_object_or_404(models.User, pk=pk, is_active=True)
+        self.check_object_permissions(request, user)
+        serializer = serializers.UserSerializer(user, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     @action(detail=False, methods=['post'], url_path='register')
     def register(self, request):
