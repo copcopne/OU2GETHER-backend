@@ -248,7 +248,6 @@ class PostViewSet(viewsets.ViewSet,generics.ListAPIView):
 
         poll_data = None
         if has_poll:
-            poll_data['end_time'] = post_data.get('end_time')
             try:
                 poll_data = json.loads(post_data.pop('poll')[0])
                 if poll_data.get('end_time'):
