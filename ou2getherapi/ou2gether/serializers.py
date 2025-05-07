@@ -2,11 +2,17 @@ from rest_framework import serializers
 from ou2gether.models import (
     User, Post, Comment, Interaction, Notification, Message,
     PostMedia, PostPoll, PollOption, CommentMedia, InteractionChoices, 
-    PostType, MessageMedia, Device, Conversation
+    PostType, MessageMedia, Device, Conversation, Follow
 )
 
 
 class UserSerializer(serializers.ModelSerializer):
+    is_follow = serializers.SerializerMethodField
+
+    def get_is_follow(self, user):
+        request_user = self.context['request'].user
+        return request_user.followings.filter(following=user).exists()
+
     
     def to_representation(self, instance):
         data = super().to_representation(instance)

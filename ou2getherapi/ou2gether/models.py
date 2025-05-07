@@ -198,6 +198,9 @@ class Follow(BaseModel):
     follower = models.ForeignKey(User, on_delete=models.CASCADE, related_name='followings')
     following = models.ForeignKey(User, on_delete=models.CASCADE, related_name='followers')
 
+    class Meta:
+        unique_together = ('follower', 'following')
+
 
 class Block(BaseModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='blocking')

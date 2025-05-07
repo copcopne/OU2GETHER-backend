@@ -165,6 +165,23 @@ class UserViewSet(viewsets.ViewSet, generics.ListAPIView):
 
         models.Block.objects.filter(user=request.user, blocked_user=target_user).delete()
         return Response({'detail': 'User unblocked successfully.'}, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post'], permission_classes=[perms.IsNotRestricted])
+    def follow(self, request, pk):
+        user_to_follow = generics.get_object_or_404(models.User, pk=pk, is_active=True)
+        user_who_follow = request.user
+
+        follow_obj = user_who_follow.followings.filter(following=user_to_follow).first()
+
+        if follow_obj:
+            follow_obj.is_active = not follow_obj.is_active
+            follow_obj.save()
+        else:
+            models.Follow.objects.create(follower=user_who_follow, following=user_to_follow)
+
+        serializer = self.get_serializer(user_to_follow, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
     
     @action(detail=True, methods=['get'], permission_classes=[perms.IsNotRestricted])
     def followers(self, request, pk):
