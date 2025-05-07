@@ -275,7 +275,8 @@ class PostViewSet(viewsets.ViewSet,generics.ListAPIView):
         if poll_data:
             poll = models.PostPoll.objects.create(
                 post=post,
-                question=poll_data.get('question', '')
+                question=poll_data.get('question', ''),
+                end_time=poll_data.get('end_time')
             )
             for opt in poll_data.get('options', []):
                 opt_serializer = serializers.PollOptionSerializer(data=opt)
@@ -297,6 +298,11 @@ class PostViewSet(viewsets.ViewSet,generics.ListAPIView):
             if k =='poll':
                 try:
                     poll_data = json.loads(v)
+                    if poll_data.get('end_time'):
+                        poll_data['end_time'] = timezone.datetime.fromisoformat(poll_data['end_time'])
+                        if poll_data['end_time'] < timezone.now():
+                            return Response({'detail': 'Poll end time must be in the future.'}, status=status.HTTP_400_BAD_REQUEST)
+                        
                     serializer = serializers.PostPollSerializer(instance=post.poll, data=poll_data)
                     serializer.is_valid(raise_exception=True)
                     serializer.save()
