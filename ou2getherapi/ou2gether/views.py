@@ -450,7 +450,7 @@ class PostViewSet(viewsets.ViewSet,generics.ListAPIView):
         return _handle_interact(request, post, reaction, is_post=True)
     
     @action(detail=True, methods=['post'], url_path='vote', permission_classes=[perms.IsNotRestricted])
-    def vote(self, request, pk, option_id):
+    def vote(self, request, pk):
         post = generics.get_object_or_404(models.Post, pk=pk, is_active=True)
         if post.post_type != models.PostType.POLL:
             return Response({"detail":"This post is not a poll."}, status=status.HTTP_400_BAD_REQUEST)
