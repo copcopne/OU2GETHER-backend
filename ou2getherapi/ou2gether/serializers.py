@@ -52,7 +52,7 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             'id', 'email', 'username', 'first_name', 'last_name', 'password',
-            'member_id', 'avatar', 'cover', 'bio', 'role'
+            'member_id', 'avatar', 'cover', 'bio', 'role',
             'must_change_password', 'password_set_deadline', 'is_locked', 
             'is_verified'
         ]
