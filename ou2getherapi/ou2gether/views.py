@@ -75,6 +75,7 @@ def _get_followers_or_following(user, is_follower=True):
 class UserViewSet(viewsets.ViewSet, generics.ListAPIView):
     queryset = models.User.objects.filter(is_active=True)
     serializer_class = serializers.UserSerializer
+    permission_classes = [perms.IsNotRestricted]
     parser_classes = [parsers.MultiPartParser]
     pagination_class = paginators.UserPagination
 
@@ -98,7 +99,7 @@ class UserViewSet(viewsets.ViewSet, generics.ListAPIView):
         serializer = serializers.UserSerializer(user, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    @action(detail=False, methods=['post'], url_path='register')
+    @action(detail=False, methods=['post'], url_path='register', permission_classes=[permissions.AllowAny])
     def register(self, request):
         user_data = request.data.copy()
         user_data['is_active'] = True
@@ -120,7 +121,7 @@ class UserViewSet(viewsets.ViewSet, generics.ListAPIView):
         return Response(serializers.UserSerializer(user).data, 
                         status=status.HTTP_201_CREATED)
 
-    @action(methods=['get', 'patch'], url_path='current-user', detail=False, permission_classes = [perms.IsAuthenticated])
+    @action(methods=['get', 'patch'], url_path='current-user', detail=False, permission_classes=[perms.IsAuthenticated])
     def get_current_user(self, request):
         u = request.user
 
@@ -234,10 +235,10 @@ class UserViewSet(viewsets.ViewSet, generics.ListAPIView):
         return Response({'detail': 'Password reset deadline set successfully.'}, status=status.HTTP_200_OK)
     
 
-class PostViewSet(viewsets.ViewSet,generics.ListAPIView):
+class PostViewSet(viewsets.ViewSet, generics.ListAPIView):
     queryset = models.Post.objects.filter(is_active=True)
     serializer_class = serializers.PostSerializer
-    permission_classes = [perms.IsAuthenticated]
+    permission_classes = [perms.IsNotRestricted]
     pagination_class = paginators.PostPagination
     parser_classes = [parsers.MultiPartParser, parsers.JSONParser]
 
@@ -406,7 +407,7 @@ class PostViewSet(viewsets.ViewSet,generics.ListAPIView):
 
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-    @action(detail=True, methods=['post'], permission_classes=[perms.IsNotRestricted])
+    @action(detail=True, methods=['post'])
     def share(self, request, pk):
         print(timezone.localtime(timezone.now()))
         shared_post = generics.get_object_or_404(models.Post, pk=pk, is_active=True)
@@ -581,9 +582,3 @@ class DeviceViewSet(viewsets.ViewSet, generics.ListCreateAPIView):
 
     def get_queryset(self):
         return self.queryset.filter(user=self.request.user)
-
-
-class ConversationViewSet(viewsets.ViewSet, generics.ListCreateAPIView):
-    queryset = models.Conversation.objects.filter(is_active=True)
-    serializer_class = serializers.ConversationSerializer
-    permission_classes = [perms.IsAuthenticated]

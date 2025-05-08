@@ -1,5 +1,9 @@
 from rest_framework import permissions
-from ou2gether.models import Post, Comment, Block
+from ou2gether.models import Post, Comment, Block, Role
+
+class IsAdmin(permissions.IsAuthenticated):
+    def has_permission(self, request, view):
+        return super().has_permission(request, view)
 
 class IsAuthenticated(permissions.IsAuthenticated):
     def has_permission(self, request, view):
@@ -16,6 +20,14 @@ class PostOwner(permissions.IsAuthenticated):
 class ObjectOwner(permissions.IsAuthenticated):
     def has_object_permission(self, request, view, obj):
         return super().has_object_permission(request, view, obj) and request.user == obj.user
+    
+class CanDeleteComment(permissions.BasePermission):
+    def has_object_permission(self, request, view, obj):
+        is_comment_owner = request.user == obj.author
+        is_post_owner    = request.user == obj.post.author
+        is_admin         = request.user and request.user.role ==    Role.ADMIN
+
+        return is_comment_owner or is_post_owner or is_admin
 
 class IsNotRestricted(permissions.IsAuthenticated):
     def has_object_permission(self, request, view, obj):
