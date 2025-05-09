@@ -105,8 +105,11 @@ class UserViewSet(viewsets.ViewSet, generics.ListAPIView):
         user_data['is_active'] = True
         user_data['is_verified'] = False
 
+        if 'role' not in user_data:
+            user_data['role'] = models.Role.STUDENT
+
         current_user = request.user
-        if current_user:
+        if current_user.is_authenticated:
             if current_user.role == models.Role.ADMIN and int(user_data.get('role', 2)) == models.Role.LECTURER:
                 user_data['password'] = 'ou@123'
                 user_data['must_change_password'] = True
