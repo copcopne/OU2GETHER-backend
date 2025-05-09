@@ -121,7 +121,7 @@ class UserViewSet(viewsets.ViewSet, generics.ListAPIView):
         return Response(serializers.UserSerializer(user).data, 
                         status=status.HTTP_201_CREATED)
 
-    @action(methods=['get', 'patch'], url_path='current-user', detail=False, permission_classes=[permissions.IsAuthenticated])
+    @action(methods=['get', 'patch'], url_path='current_user', detail=False, permission_classes=[permissions.IsAuthenticated])
     def get_current_user(self, request):
         u = request.user
 
@@ -135,14 +135,14 @@ class UserViewSet(viewsets.ViewSet, generics.ListAPIView):
 
         return Response(serializers.UserSerializer(u).data, status=status.HTTP_200_OK)
     
-    @action(methods=['get'], detail=False, url_path='current-user/followers', permission_classes=[perms.IsAuthenticated])
+    @action(methods=['get'], detail=False, url_path='current_user/followers', permission_classes=[perms.IsAuthenticated])
     def current_user_followers(self, request):
         u = request.user
         followers = _get_followers_or_following(u, is_follower=True)
         serializer = serializers.FollowSerializer(followers, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
     
-    @action(methods=['get'], detail=False, url_path='current-user/following', permission_classes=[perms.IsAuthenticated])
+    @action(methods=['get'], detail=False, url_path='current_user/following', permission_classes=[perms.IsAuthenticated])
     def current_user_following(self, request):
         u = request.user
         following = _get_followers_or_following(u, is_follower=False)
