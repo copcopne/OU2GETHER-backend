@@ -14,7 +14,7 @@ class BaseModel(models.Model):
 
 
 class MediaModel(BaseModel):
-    file = CloudinaryField()
+    file = models.CharField(max_length=255)
 
     class Meta:
         abstract = True
