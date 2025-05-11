@@ -29,6 +29,14 @@ class CanDeleteComment(permissions.BasePermission):
 
         return is_comment_owner or is_post_owner or is_admin
 
+class CanDeletePost(permissions.BasePermission):
+    def has_object_permission(self, request, view, obj):
+        is_post_owner = request.user == obj.author
+        is_admin = request.user and request.user.role == Role.ADMIN
+        
+        return is_post_owner or is_admin
+
+
 class IsNotRestricted(permissions.IsAuthenticated):
     def has_object_permission(self, request, view, obj):
         if isinstance(obj, Post) or isinstance(obj, Comment):
