@@ -14,8 +14,11 @@ class UserSerializer(serializers.ModelSerializer):
     number_of_followings = serializers.IntegerField(source='followings.count', read_only=True)
 
     def get_is_following(self, user):
-        request_user = self.context['request'].user
-        return request_user.followings.filter(following=user).exists()
+        request = self.context.get('request')
+
+        if not request or not hasattr(request, 'user'):
+            return False
+        return request.user.followings.filter(following=user).exists()
     
     def get_is_myself(self, user):
         request = self.context.get('request')
