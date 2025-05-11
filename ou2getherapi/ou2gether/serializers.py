@@ -16,20 +16,21 @@ class UserSerializer(serializers.ModelSerializer):
     def get_is_following(self, user):
         request = self.context.get('request')
 
-        if not request or not hasattr(request, 'user'):
+        if not request or not hasattr(request, 'user') or request.user.is_anonymous:
             return False
         return request.user.followings.filter(following=user).exists()
     
     def get_is_myself(self, user):
         request = self.context.get('request')
 
-        if not request or not hasattr(request, 'user'):
+        if not request or not hasattr(request, 'user') or request.user.is_anonymous:
             return False
         return request.user.id == user.id
     
     def get_if_mutual(self, user):
         request = self.context.get('request')
-        if not request or not hasattr(request, 'user'):
+
+        if not request or not hasattr(request, 'user') or request.user.is_anonymous:
             return False
         request_user = request.user
         if_mutual = request_user.followings.filter(following=user).exists() and user.followings.filter(following=request_user).exists()
