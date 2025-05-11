@@ -24,8 +24,8 @@ class ObjectOwner(permissions.IsAuthenticated):
 class CanDeleteComment(permissions.BasePermission):
     def has_object_permission(self, request, view, obj):
         is_comment_owner = request.user == obj.author
-        is_post_owner    = request.user == obj.post.author
-        is_admin         = request.user and request.user.role ==    Role.ADMIN
+        is_post_owner = request.user == obj.post.author
+        is_admin = request.user and request.user.role == Role.ADMIN
 
         return is_comment_owner or is_post_owner or is_admin
 
@@ -34,7 +34,7 @@ class IsNotRestricted(permissions.IsAuthenticated):
         if isinstance(obj, Post) or isinstance(obj, Comment):
             target_user = obj.author
         else:
-            target_user = obj.user
+            target_user = obj
 
         me = request.user
         blocked_by_me = Block.objects.filter(user=me, blocked_user=target_user).exists()
