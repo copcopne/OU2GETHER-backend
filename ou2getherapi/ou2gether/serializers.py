@@ -2,17 +2,35 @@ from rest_framework import serializers
 from ou2gether.models import (
     User, Post, Comment, Interaction, Notification, Message,
     PostMedia, PostPoll, PollOption, CommentMedia, InteractionChoices, 
-    PostType, MessageMedia, Device, Conversation, Follow
+    PostType, MessageMedia, Device, Conversation
 )
 
 
 class UserSerializer(serializers.ModelSerializer):
-    is_follow = serializers.SerializerMethodField
+    is_following = serializers.SerializerMethodField()
+    is_myself = serializers.SerializerMethodField()
+    if_mutual = serializers.SerializerMethodField()
+    number_of_followers = serializers.IntegerField(source='followers.count', read_only=True)
+    number_of_followings = serializers.IntegerField(source='followings.count', read_only=True)
 
-    def get_is_follow(self, user):
+    def get_is_following(self, user):
         request_user = self.context['request'].user
         return request_user.followings.filter(following=user).exists()
+    
+    def get_is_myself(self, user):
+        request = self.context.get('request')
 
+        if not request or not hasattr(request, 'user'):
+            return False
+        return request.user.id == user.id
+    
+    def get_if_mutual(self, user):
+        request = self.context.get('request')
+        if not request or not hasattr(request, 'user'):
+            return False
+        request_user = request.user
+        if_mutual = request_user.followings.filter(following=user).exists() and user.followings.filter(following=request_user).exists()
+        return if_mutual
     
     def to_representation(self, instance):
         data = super().to_representation(instance)
@@ -59,15 +77,22 @@ class UserSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'email', 'username', 'first_name', 'last_name', 'password',
             'member_id', 'avatar', 'cover', 'bio', 'role',
+            'is_following', 'number_of_followers', 'number_of_followings',
             'must_change_password', 'password_set_deadline', 'is_locked', 
-            'is_verified'
+            'is_verified', 'date_joined',
+            'is_myself', 'if_mutual'
         ]
         extra_kwargs = {
-            'password': {'required': True, 'write_only': True},
-            'member_id': {'required': True},
+            'password': {
+                'required': True, 
+                'write_only': True
+            }, 'member_id': {
+                'required': True
+            }
         }
         read_only_fields = [
-            'id', 'is_verified'
+            'id', 'is_verified', 'date_joined', 'is_following', 
+            'number_of_followers', 'number_of_followings'
         ]
         write_only_fields = [
             'password', 'member_id', 'must_change_password', 
@@ -76,9 +101,38 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class MinimalUserSerializer(serializers.ModelSerializer):
+    is_following = serializers.SerializerMethodField()
+    is_myself = serializers.SerializerMethodField()
+    if_mutual = serializers.SerializerMethodField()
+    number_of_followers = serializers.IntegerField(source='followers.count', read_only=True)
+    number_of_followings = serializers.IntegerField(source='followings.count', read_only=True)
+
+    def get_is_following(self, user):
+        request_user = self.context['request'].user
+        return request_user.followings.filter(following=user).exists()
+    
+    def get_is_myself(self, user):
+        request = self.context.get('request')
+
+        if not request or not hasattr(request, 'user'):
+            return False
+        return request.user.id == user.id
+    
+    def get_if_mutual(self, user):
+        request = self.context.get('request')
+        if not request or not hasattr(request, 'user'):
+            return False
+        request_user = request.user
+        if_mutual = request_user.followings.filter(following=user).exists() and user.followings.filter(following=request_user).exists()
+        return if_mutual
+    
     class Meta:
         model = User
-        fields = ['id', 'username', 'first_name', 'last_name', 'avatar']
+        fields = [
+            'id', 'username', 'first_name', 'last_name', 'avatar', 
+            'is_following', 'number_of_followers', 'number_of_followings',
+            'is_myself', 'if_mutual'
+            ]
 
 
 class PostMediaSerializer(serializers.ModelSerializer):
@@ -156,6 +210,8 @@ class PostSerializer(serializers.ModelSerializer):
     is_commendable = serializers.BooleanField(required=False, default=True)
     interactions = serializers.SerializerMethodField()
     my_interaction = serializers.SerializerMethodField()
+    comment_count = serializers.IntegerField(source='comments.count', read_only=True)
+    share_count = serializers.IntegerField(source='shares.count', read_only=True)
 
     def create(self, validated_data):
         validated_data['author'] = self.context['request'].user
@@ -212,11 +268,12 @@ class PostSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'author', 'post_type', 'is_commendable', 'is_shared',
             'shared_post', 'content', 'is_edited', 'created_at', 'updated_at', 
-            'media', 'poll', 'interactions','my_interaction'
+            'media', 'poll', 'interactions','my_interaction',
+            'comment_count', 'share_count'
         ]
         read_only_fields = [
             'post_type', 'author','is_shared', 'shared_post', 'is_edited', 'interactions', 'created_at', 
-            'updated_at', 'my_interaction'
+            'updated_at', 'my_interaction', 'comment_count', 'share_count'
         ]
 
 

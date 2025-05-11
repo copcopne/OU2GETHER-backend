@@ -7,6 +7,9 @@ from ou2gether import serializers, perms, paginators
 from django.utils.dateparse import parse_datetime
 import json
 from django.utils import timezone
+from django.http import JsonResponse
+from django.utils.timezone import make_aware
+from datetime import datetime
 
 
 def _handle_media_upload(files, comment_obj=None, post_obj=None):
@@ -121,7 +124,7 @@ class UserViewSet(viewsets.ViewSet, generics.ListAPIView):
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
 
-        return Response(serializers.UserSerializer(user).data, 
+        return Response(serializers.UserSerializer(user, context={'request': request}).data, 
                         status=status.HTTP_201_CREATED)
 
     @action(methods=['get', 'patch'], url_path='current_user', detail=False, permission_classes=[permissions.IsAuthenticated])
@@ -136,21 +139,7 @@ class UserViewSet(viewsets.ViewSet, generics.ListAPIView):
                     setattr(u, k, v)
             u.save()
 
-        return Response(serializers.UserSerializer(u).data, status=status.HTTP_200_OK)
-    
-    @action(methods=['get'], detail=False, url_path='current_user/followers', permission_classes=[perms.IsAuthenticated])
-    def current_user_followers(self, request):
-        u = request.user
-        followers = _get_followers_or_following(u, is_follower=True)
-        serializer = serializers.FollowSerializer(followers, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-    
-    @action(methods=['get'], detail=False, url_path='current_user/following', permission_classes=[perms.IsAuthenticated])
-    def current_user_following(self, request):
-        u = request.user
-        following = _get_followers_or_following(u, is_follower=False)
-        serializer = serializers.FollowSerializer(following, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializers.UserSerializer(u, context={'request': request}).data, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['post'], permission_classes=[perms.IsNotRestricted])
     def block_user(self, request, pk):
@@ -185,13 +174,12 @@ class UserViewSet(viewsets.ViewSet, generics.ListAPIView):
 
         serializer = self.get_serializer(user_to_follow, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
-
     
     @action(detail=True, methods=['get'], permission_classes=[perms.IsNotRestricted])
     def followers(self, request, pk):
         user = generics.get_object_or_404(models.User, pk=pk, is_active=True)
         followers = _get_followers_or_following(user, is_follower=True)
-        serializer = serializers.FollowSerializer(followers, many=True)
+        serializer = serializers.FollowSerializer(followers, many=True, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
     
     
@@ -199,13 +187,13 @@ class UserViewSet(viewsets.ViewSet, generics.ListAPIView):
     def following(self, request, pk):
         user = generics.get_object_or_404(models.User, pk=pk, is_active=True)
         following = _get_followers_or_following(user, is_follower=False)
-        serializer = serializers.FollowSerializer(following, many=True)
+        serializer = serializers.FollowSerializer(following, many=True, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
     
     @action(detail=False, methods=['get'], permission_classes=[permissions.IsAdminUser])
     def unverified_users(self, request):
         unverified_users = models.User.objects.filter(is_verified=False, is_active=True)
-        serializer = serializers.UserSerializer(unverified_users, many=True)
+        serializer = serializers.UserSerializer(unverified_users, many=True, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
     
     @action(detail=True, methods=['post'], permission_classes=[permissions.IsAdminUser])
@@ -260,7 +248,7 @@ class PostViewSet(viewsets.ViewSet, generics.ListAPIView):
         if self.action == 'retrieve':
             return [perms.IsNotRestricted()]
         return super().get_permissions()
-
+    
     def retrieve(self, request, pk):
         post = generics.get_object_or_404(models.Post, pk=pk, is_active=True)
         self.check_object_permissions(request, post)
@@ -343,25 +331,42 @@ class PostViewSet(viewsets.ViewSet, generics.ListAPIView):
         if request.user != post.author:
             return Response({"detail":"You don't have permission to edit this post."}, status=status.HTTP_403_FORBIDDEN)
         
-        post.is_edited = True
+        is_edited = False
         for k, v in request.data.items():
             if k =='poll':
                 try:
                     poll_data = json.loads(v)
                     if poll_data.get('end_time'):
                         poll_data['end_time'] = timezone.datetime.fromisoformat(poll_data['end_time'])
+                        if timezone.is_naive(poll_data['end_time']):
+                            poll_data['end_time'] = timezone.make_aware(poll_data['end_time'], timezone.get_current_timezone())
+
                         if poll_data['end_time'] < timezone.now():
                             return Response({'detail': 'Poll end time must be in the future.'}, status=status.HTTP_400_BAD_REQUEST)
                         
-                    serializer = serializers.PostPollSerializer(instance=post.poll, data=poll_data)
+                    serializer = serializers.PostPollSerializer(instance=post.poll, data=poll_data, partial=True)
                     serializer.is_valid(raise_exception=True)
                     serializer.save()
+                    is_edited = True
                 except json.JSONDecodeError:
                     return Response({'detail': 'Invalid poll JSON.'}, status=status.HTTP_400_BAD_REQUEST)
-            elif k in ['content', 'is_commendable']:
-                setattr(post, k, v)
-        post.save()
-        return Response(self.get_serializer(post, context={'request': request}).data, status=status.HTTP_200_OK)
+            elif k == 'content':
+                if not v.strip():
+                    return Response({'detail': 'Content cannot be empty.'}, status=status.HTTP_400_BAD_REQUEST)
+                post.content = v
+                is_edited = True
+
+            elif k == 'is_commendable':
+                post.is_commendable = v
+                is_edited = True
+
+        if is_edited:
+            post.is_edited = True
+            post.save()
+            return Response(self.get_serializer(post, context={'request': request}).data, status=status.HTTP_200_OK)
+        
+        return Response({"detail":"No changes were made."}, status=status.HTTP_400_BAD_REQUEST)
+
     
     @action(detail=True, methods=['post'], url_path='update_post/upload_media', permission_classes=[perms.PostOwner])
     def upload_media(self, request, pk):
@@ -414,6 +419,9 @@ class PostViewSet(viewsets.ViewSet, generics.ListAPIView):
     def share(self, request, pk):
         print(timezone.localtime(timezone.now()))
         shared_post = generics.get_object_or_404(models.Post, pk=pk, is_active=True)
+        
+        while shared_post.is_shared and shared_post.shared_post:
+            shared_post = shared_post.shared_post
 
         if request.data.get('media') or request.data.get('poll'):
             return Response(
@@ -434,7 +442,7 @@ class PostViewSet(viewsets.ViewSet, generics.ListAPIView):
 
         return Response(serializers.PostSerializer(share, context={'request': request}).data, status=status.HTTP_201_CREATED)
 
-    @action(detail=True, methods=['delete'], permission_classes=[perms.PostOwner, permissions.IsAdminUser])
+    @action(detail=True, methods=['delete'], permission_classes=[perms.CanDeletePost])
     def delete_post(self, request, pk):
         post = generics.get_object_or_404(models.Post, pk=pk, is_active=True)
         if request.user != post.author:
@@ -457,6 +465,9 @@ class PostViewSet(viewsets.ViewSet, generics.ListAPIView):
         comment_data = request.data.copy()
         comment_data['post'] = post.id
         comment_data['author'] = request.user.id
+
+        if(not comment_data.get('content').strip()):
+            return Response({'detail': 'Content cannot be empty.'}, status=status.HTTP_400_BAD_REQUEST)
 
         serializer = serializers.CommentSerializer(data=comment_data, context={'request': request})
         serializer.is_valid(raise_exception=True)
@@ -513,7 +524,7 @@ class CommentViewSet(viewsets.ViewSet):
     def update_comment(self, request, pk):
         comment = generics.get_object_or_404(models.Comment, pk=pk, is_active=True)
         
-        comment.__setattr__('is_edited', True)
+        comment.is_edited = True
         content = request.data.get('content')
         if content:
             comment.content = content
@@ -525,9 +536,9 @@ class CommentViewSet(viewsets.ViewSet):
 
         return Response(serializers.CommentSerializer(comment).data)
 
-    @action(detail=True, methods=['delete'], permission_classes=[perms.CommentOwner, perms.PostOwner, permissions.IsAdminUser])
+    @action(detail=True, methods=['delete'], permission_classes=[perms.CanDeleteComment])
     def delete_comment(self, request, pk):
-        comment = generics.get_object_or_404(models.Comment, pk=pk, is_active=True)
+        comment = self.get_object()
         
         comment.is_active = False
         comment.save()
@@ -539,6 +550,9 @@ class CommentViewSet(viewsets.ViewSet):
         reply_data = request.data.copy()
         reply_data['post'] = comment.post.id
         reply_data['author'] = request.user.id
+
+        if(not reply_data.get('content').strip()):
+            return Response({'detail': 'Content cannot be empty.'}, status=status.HTTP_400_BAD_REQUEST)
 
         serializer = serializers.CommentSerializer(data=reply_data, context={'request': request})
         serializer.is_valid(raise_exception=True)
@@ -585,3 +599,74 @@ class DeviceViewSet(viewsets.ViewSet, generics.ListCreateAPIView):
 
     def get_queryset(self):
         return self.queryset.filter(user=self.request.user)
+    
+
+def get_stats(request):
+    user = request.user
+    if not user.is_authenticated or not user.role == models.Role.ADMIN:
+        return JsonResponse({'detail': 'Permission denied.'}, status=status.HTTP_403_FORBIDDEN)
+
+    if request.method != 'GET':
+        return JsonResponse({'detail': 'Method not allowed.'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+    
+    object_type = request.GET.get('object_type')
+
+    if not object_type:
+        return JsonResponse({'detail': 'Missing required params: object_type.'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    if object_type == 'user':
+        obj = models.User.objects.filter(is_active=True, is_verified=True)
+    elif object_type == 'post':
+        obj = models.Post.objects.filter(is_active=True)
+    else:
+        return JsonResponse({'detail': 'Invalid object type.'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    
+    year = request.GET.get('year')
+    quarter = request.GET.get('quarter')
+    month = request.GET.get('month')
+
+    try:
+        year = int(year) if year else timezone.now().year
+        quarter = int(quarter) if quarter else None
+        if quarter and (quarter < 1 or quarter > 4):
+            return JsonResponse({'detail': 'Invalid quarter.'}, status=status.HTTP_400_BAD_REQUEST)
+        month = int(month) if month else None
+        if month and (month < 1 or month > 12):
+            return JsonResponse({'detail': 'Invalid month.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+    except ValueError:
+        return JsonResponse({'detail': 'Invalid param type.'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    if quarter and month:
+        return JsonResponse({'detail': 'Cannot filter by both quarter and month.'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    if quarter:
+        start_month = (quarter - 1) * 3 + 1
+        end_month = start_month + 2
+        start = make_aware(datetime(year, start_month, 1))
+        if end_month == 12:
+            end = make_aware(datetime(year + 1, 1, 1))
+        else:
+            end = make_aware(datetime(year, end_month + 1, 1))
+
+        count = obj.filter(created_at__gte=start, 
+                           created_at__lt=end) \
+                        .count()
+        label = f"Q{quarter}"
+
+    elif month:
+        count = obj.filter(created_at__year=year, created_at__month=month).count()
+        label = f"Tháng {month}"
+
+    else:
+        count = obj.filter(created_at__year=year).count()
+        label = f"Năm {year}"
+
+    return JsonResponse({
+        'label': label,
+        'count': count if count else 0,
+        'total': obj.count()
+    })
+
+
