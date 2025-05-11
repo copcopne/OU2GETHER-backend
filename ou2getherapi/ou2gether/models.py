@@ -14,7 +14,7 @@ class BaseModel(models.Model):
 
 
 class MediaModel(BaseModel):
-    file = models.CharField(max_length=255)
+    file = CloudinaryField()
 
     class Meta:
         abstract = True
@@ -126,7 +126,7 @@ class Comment(BaseModel):
     is_edited = models.BooleanField(default=False)
     
     author = models.ForeignKey(User, on_delete=models.CASCADE)
-    post = models.ForeignKey(Post, on_delete=models.CASCADE)
+    post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='comments')
     parent_comment = models.ForeignKey("self", on_delete=models.CASCADE, null=True, blank=True, db_index=True, related_name='replies')
 
 
