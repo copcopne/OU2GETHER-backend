@@ -85,7 +85,7 @@ class UserViewSet(viewsets.ViewSet, generics.ListAPIView):
     queryset = models.User.objects.filter(is_active=True)
     serializer_class = serializers.UserSerializer
     permission_classes = [perms.IsNotRestricted]
-    parser_classes = [parsers.MultiPartParser]
+    parser_classes = [parsers.MultiPartParser, parsers.JSONParser]
     pagination_class = paginators.UserPagination
 
     def get_queryset(self):
