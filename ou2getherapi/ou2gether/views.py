@@ -70,9 +70,15 @@ def _handle_interact(request, target_obj, reaction, is_post=True):
 
 
 def _get_followers_or_following(user, is_follower=True):
-    return models.Follow.objects.filter(
-        **({'following': user} if is_follower else {'follower': user})
-    ).select_related('follower' if is_follower else 'following')
+    if is_follower:
+        follows = models.Follow.objects.filter(following=user, is_active=True)
+        user_ids = follows.values_list('follower_id', flat=True)
+    else:
+        # mình đang follow ai?
+        follows = models.Follow.objects.filter(follower=user, is_active=True)
+        user_ids = follows.values_list('following_id', flat=True)
+
+    return models.User.objects.filter(id__in=user_ids, is_active=True)
 
 
 class UserViewSet(viewsets.ViewSet, generics.ListAPIView):
@@ -178,21 +184,39 @@ class UserViewSet(viewsets.ViewSet, generics.ListAPIView):
     @action(detail=True, methods=['get'], permission_classes=[perms.IsNotRestricted])
     def followers(self, request, pk):
         user = generics.get_object_or_404(models.User, pk=pk, is_active=True)
-        followers = _get_followers_or_following(user, is_follower=True)
-        serializer = serializers.FollowSerializer(followers, many=True, context={'request': request})
+        followers_qs = _get_followers_or_following(user, is_follower=True)
+
+        page = self.paginate_queryset(followers_qs)
+        if page is not None:
+            serializer = serializers.MinimalUserSerializer(page, many=True, context={'request': request})
+            return self.get_paginated_response(serializer.data)
+
+        serializer = serializers.MinimalUserSerializer(followers_qs, many=True, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
     
     
     @action(detail=True, methods=['get'], permission_classes=[perms.IsNotRestricted])
     def following(self, request, pk):
         user = generics.get_object_or_404(models.User, pk=pk, is_active=True)
-        following = _get_followers_or_following(user, is_follower=False)
-        serializer = serializers.FollowSerializer(following, many=True, context={'request': request})
+        following_qs = _get_followers_or_following(user, is_follower=False)
+
+        page = self.paginate_queryset(following_qs)
+        if page is not None:
+            serializer = serializers.MinimalUserSerializer(page, many=True, context={'request': request})
+            return self.get_paginated_response(serializer.data)
+        
+        serializer = serializers.MinimalUserSerializer(following_qs, many=True, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
     
     @action(detail=False, methods=['get'], permission_classes=[permissions.IsAdminUser])
     def unverified_users(self, request):
         unverified_users = models.User.objects.filter(is_verified=False, is_active=True)
+        page = self.paginate_queryset(unverified_users)
+
+        if page is not None:
+            serializer = serializers.UserSerializer(page, many=True, context={'request': request})
+            return self.get_paginated_response(serializer.data)
+        
         serializer = serializers.UserSerializer(unverified_users, many=True, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
     
@@ -458,6 +482,12 @@ class PostViewSet(viewsets.ViewSet, generics.ListAPIView):
     def comments(self, request, pk):
         post = generics.get_object_or_404(models.Post, pk=pk, is_active=True)
         comments = models.Comment.objects.filter(post=post, is_active=True)
+
+        page = self.paginate_queryset(comments)
+        if page is not None:
+            serializer = serializers.CommentSerializer(page, many=True, context={'request': request})
+            return self.get_paginated_response(serializer.data)
+        
         serializer = serializers.CommentSerializer(comments, many=True, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -485,6 +515,12 @@ class PostViewSet(viewsets.ViewSet, generics.ListAPIView):
     def interactions(self, request, pk):
         post = generics.get_object_or_404(models.Post, pk=pk, is_active=True)
         interactions = models.Interaction.objects.filter(post=post, is_active=True)
+
+        page = self.paginate_queryset(interactions)
+        if page is not None:
+            serializer = serializers.InteractionListSerializer(page, many=True, context={'request': request})
+            return self.get_paginated_response(serializer.data)
+
         serializer = serializers.InteractionListSerializer(interactions, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -575,6 +611,12 @@ class CommentViewSet(viewsets.ViewSet):
     def interactions(self, request, pk):
         comment = generics.get_object_or_404(models.Comment, pk=pk, is_active=True)
         interactions = models.Interaction.objects.filter(comment=comment, is_active=True)
+
+        page = self.paginate_queryset(interactions)
+        if page is not None:
+            serializer = serializers.InteractionListSerializer(page, many=True, context={'request': request})
+            return self.get_paginated_response(serializer.data)
+
         serializer = serializers.InteractionListSerializer(interactions, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
