@@ -105,8 +105,8 @@ class Interaction(BaseModel):
     type = models.PositiveSmallIntegerField(choices=InteractionChoices.choices)
     
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    post = models.ForeignKey(Post, on_delete=models.CASCADE, null=True, blank=True)
-    comment = models.ForeignKey("Comment", on_delete=models.CASCADE , null=True, blank=True)
+    post = models.ForeignKey(Post, on_delete=models.CASCADE, null=True, blank=True, related_name="interactions")
+    comment = models.ForeignKey("Comment", on_delete=models.CASCADE , null=True, blank=True, related_name='interactions')
 
     class Meta:
         constraints = [
