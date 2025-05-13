@@ -32,7 +32,7 @@ class UserSerializer(serializers.ModelSerializer):
 
         if not request or not hasattr(request, 'user') or request.user.is_anonymous:
             return False
-        return request.user.followings.filter(following=user).exists()
+        return request.user.followings.filter(following=user, is_active=True).exists()
     
     def get_is_myself(self, user):
         request = self.context.get('request')
@@ -144,7 +144,7 @@ class MinimalUserSerializer(serializers.ModelSerializer):
 
         if not request or not hasattr(request, 'user') or request.user.is_anonymous:
             return False
-        return request.user.followings.filter(following=user).exists()
+        return request.user.followings.filter(following=user, is_active=True).exists()
     
     def get_is_myself(self, user):
         request = self.context.get('request')
