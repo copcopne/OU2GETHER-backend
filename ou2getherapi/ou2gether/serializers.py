@@ -287,7 +287,7 @@ class PostSerializer(serializers.ModelSerializer):
     def get_my_interaction(self, post):
         user = self.context['request'].user
         try:
-            interaction = post.interaction_set.get(user=user, is_active=True)
+            interaction = post.interactions.get(user=user, is_active=True)
             return InteractionChoices(interaction.type).label.lower()
         except Interaction.DoesNotExist:
             return None
@@ -298,7 +298,7 @@ class PostSerializer(serializers.ModelSerializer):
         return data
 
     def get_interactions(self, post):
-        qs = post.interaction_set.filter(is_active=True)
+        qs = post.interactions.filter(is_active=True)
         return {
             choice.label.lower(): qs.filter(type=choice.value).count()
             for choice in InteractionChoices
