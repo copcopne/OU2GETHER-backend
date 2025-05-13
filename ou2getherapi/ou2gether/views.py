@@ -224,7 +224,6 @@ class UserViewSet(viewsets.ViewSet, generics.ListAPIView):
         user.reset_password_deadline = timezone.now() + timezone.timedelta(hours=hours)
         user.save()
         return Response({'detail': 'Password reset deadline set successfully.'}, status=status.HTTP_200_OK)
-    
 
 class PostViewSet(viewsets.ViewSet, generics.ListAPIView):
     queryset = models.Post.objects.filter(is_active=True)
@@ -236,6 +235,9 @@ class PostViewSet(viewsets.ViewSet, generics.ListAPIView):
     def get_queryset(self):
         queryset = super().get_queryset()
         params = self.request.query_params
+        if params.get('userId'):
+            user_id = params.get('userId')
+            queryset = queryset.filter(author__id=user_id)
         if params.get('poll'):
             queryset = queryset.filter(post_type=models.PostType.POLL)
         if params.get('following'):
