@@ -250,6 +250,7 @@ class PostSerializer(serializers.ModelSerializer):
     is_commendable = serializers.BooleanField(required=False, default=True)
     interactions = serializers.SerializerMethodField()
     my_interaction = serializers.SerializerMethodField()
+    interaction_count = serializers.IntegerField(source ='interactions.count', read_only=True)
     comment_count = serializers.IntegerField(source='comments.count', read_only=True)
     share_count = serializers.IntegerField(source='shares.count', read_only=True)
 
@@ -309,7 +310,7 @@ class PostSerializer(serializers.ModelSerializer):
             'id', 'author', 'post_type', 'is_commendable', 'is_shared',
             'shared_post', 'content', 'is_edited', 'created_at', 'updated_at', 
             'media', 'poll', 'interactions','my_interaction',
-            'comment_count', 'share_count'
+            'comment_count', 'share_count', 'interaction_count'
         ]
         read_only_fields = [
             'post_type', 'author','is_shared', 'shared_post', 'is_edited', 'interactions', 'created_at', 
