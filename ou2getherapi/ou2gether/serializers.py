@@ -18,14 +18,14 @@ class UserSerializer(serializers.ModelSerializer):
 
         if not request or not hasattr(request, 'user') or request.user.is_anonymous:
             return 0
-        return request.user.followings.filter(follower=user, is_active=True).count()
+        return request.user.followings.filter(following=user, is_active=True).count()
     
     def get_number_of_followings(self, user):
         request = self.context.get('request')
 
         if not request or not hasattr(request, 'user') or request.user.is_anonymous:
             return 0
-        return request.user.followings.filter(following=user, is_active=True).count()
+        return request.user.followings.filter(follower=user, is_active=True).count()
 
     def get_is_following(self, user):
         request = self.context.get('request')
@@ -130,14 +130,14 @@ class MinimalUserSerializer(serializers.ModelSerializer):
 
         if not request or not hasattr(request, 'user') or request.user.is_anonymous:
             return 0
-        return request.user.followings.filter(follower=user, is_active=True).count()
+        return request.user.followings.filter(following=user, is_active=True).count()
     
     def get_number_of_followings(self, user):
         request = self.context.get('request')
 
         if not request or not hasattr(request, 'user') or request.user.is_anonymous:
             return 0
-        return request.user.followings.filter(following=user, is_active=True).count()
+        return request.user.followings.filter(follower=user, is_active=True).count()
 
     def get_is_following(self, user):
         request = self.context.get('request')
