@@ -162,6 +162,14 @@ class MinimalUserSerializer(serializers.ModelSerializer):
         if_mutual = request_user.followings.filter(following=user).exists() and user.followings.filter(following=request_user).exists()
         return if_mutual
     
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+
+        data['avatar'] = instance.avatar.url if instance.avatar else ''
+        data['cover'] = instance.cover.url if instance.cover else ''
+
+        return data
+    
     class Meta:
         model = User
         fields = [
