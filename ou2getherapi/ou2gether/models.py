@@ -154,6 +154,13 @@ class Notification(BaseModel):
         ordering = ['-created_at']
 
 
+class Group(BaseModel):
+    name = models.CharField(max_length=100)
+    members = models.ManyToManyField(User, related_name='notify_groups')
+    
+    class Meta:
+        ordering = ['-created_at']
+
 class Conversation(BaseModel):
     user1 = models.ForeignKey(User, on_delete=models.CASCADE, related_name='conversations_initiated')
     user2 = models.ForeignKey(User, on_delete=models.CASCADE, related_name='conversations_received')

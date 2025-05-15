@@ -2,7 +2,7 @@ from rest_framework import serializers
 from ou2gether.models import (
     User, Post, Comment, Interaction, Notification, Message,
     PostMedia, PostPoll, PollOption, CommentMedia, InteractionChoices, 
-    PostType, MessageMedia, Device, Conversation
+    PostType, MessageMedia, Device, Conversation, Group
 )
 
 
@@ -182,6 +182,17 @@ class MinimalUserSerializer(serializers.ModelSerializer):
             'is_myself', 'if_mutual'
         ]
 
+
+class CustomUserSerialzier(serializers.ModelSerializer):
+
+    class Meta:
+        model = User
+        fields = [
+            'id', 'username', 'first_name', 'last_name', 'avatar', 'email'
+            ]
+        read_only_fields = [
+            'id', 'username', 'first_name', 'last_name', 'avatar', 'email'
+        ]
 
 class PostMediaSerializer(serializers.ModelSerializer):
     file_url = serializers.CharField(source='file.url')
@@ -510,4 +521,13 @@ class MessageSerializer(serializers.ModelSerializer):
         fields = [
             'id','conversation', 'sender', 'receiver', 'content',
             'media', 'is_read', 'created_at' 
+        ]
+
+class GroupSerialzier(serializers.ModelSerializer):
+    members = CustomUserSerialzier(read_only=True, many=True)
+
+    class Meta:
+        model = Group
+        fields = [
+            'id', 'name', 'members'
         ]

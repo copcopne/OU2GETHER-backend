@@ -17,7 +17,7 @@ Including another URLconf
 from django.urls import path, include, re_path
 
 from ou2gether.admin import admin_site
-from ou2gether.views import get_stats
+from ou2gether.views import get_stats, trigger_email
 from rest_framework import permissions
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
@@ -36,6 +36,7 @@ schema_view = get_schema_view(
 urlpatterns = [
     path('', include('ou2gether.urls')),
     path('stats/', get_stats),
+    path('sent-email/', trigger_email),
     path('admin/', admin_site.urls),
     path('o/', include('oauth2_provider.urls',
             namespace='oauth2_provider')),

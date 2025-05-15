@@ -10,6 +10,7 @@ from django.utils import timezone
 from django.http import JsonResponse
 from django.utils.timezone import make_aware
 from datetime import datetime
+from django.core.mail import send_mail
 
 
 def _handle_media_upload(files, comment_obj=None, post_obj=None):
@@ -133,7 +134,7 @@ class UserViewSet(viewsets.ViewSet, generics.ListAPIView):
         return Response(serializers.UserSerializer(user, context={'request': request}).data, 
                         status=status.HTTP_201_CREATED)
 
-    @action(methods=['get', 'patch'], url_path='current_user', detail=False, permission_classes=[permissions.IsAuthenticated])
+    @action(methods=['get', 'patch'], url_path='current-user', detail=False, permission_classes=[permissions.IsAuthenticated])
     def get_current_user(self, request):
         u = request.user
 
@@ -147,7 +148,7 @@ class UserViewSet(viewsets.ViewSet, generics.ListAPIView):
 
         return Response(serializers.UserSerializer(u, context={'request': request}).data, status=status.HTTP_200_OK)
 
-    @action(detail=True, methods=['post'], permission_classes=[perms.IsNotRestricted])
+    @action(detail=True, methods=['post'], url_path='block-user',permission_classes=[perms.IsNotRestricted])
     def block_user(self, request, pk):
         target_user = generics.get_object_or_404(models.User, pk=pk, is_active=True)
         if request.user == target_user:
@@ -156,7 +157,7 @@ class UserViewSet(viewsets.ViewSet, generics.ListAPIView):
         models.Block.objects.create(user=request.user, blocked_user=target_user)
         return Response({'detail': 'User blocked successfully.'}, status=status.HTTP_200_OK)
     
-    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
+    @action(detail=True, methods=['post'], url_path='unblock-user',permission_classes=[permissions.IsAuthenticated])
     def unblock_user(self, request, pk):
         target_user = generics.get_object_or_404(models.User, pk=pk, is_active=True)
         if request.user == target_user:
@@ -208,7 +209,7 @@ class UserViewSet(viewsets.ViewSet, generics.ListAPIView):
         serializer = serializers.MinimalUserSerializer(following_qs, many=True, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
     
-    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAdminUser])
+    @action(detail=False, methods=['get'], url_path='unverified-users',permission_classes=[permissions.IsAdminUser])
     def unverified_users(self, request):
         unverified_users = models.User.objects.filter(is_verified=False, is_active=True)
         page = self.paginate_queryset(unverified_users)
@@ -228,24 +229,24 @@ class UserViewSet(viewsets.ViewSet, generics.ListAPIView):
 
         user.is_verified = True
         user.save()
+        send_mail(
+            'Thông báo tình trạng tài khoản',
+            'Chào bạn,\nTài khoản của bạn đã được xác nhận và đã có thể truy cập vào hệ thống.\nChúc bạn có trải nghiệm tốt.',
+            'copcopne@gmail.com',
+            [user.email],
+            fail_silently=False,
+        )
         return Response({'detail': 'User verified successfully.'}, status=status.HTTP_200_OK)
     
-    @action(detail=True, methods=['post'], url_path=r'reset_password_deadline/(?P<hours>\d+)', permission_classes=[permissions.IsAdminUser])
+    @action(detail=True, methods=['post'], url_path='reset-password-deadline', permission_classes=[permissions.IsAdminUser])
     def reset_password_deadline(self, request, pk):
         user = generics.get_object_or_404(models.User, pk=pk, is_active=True)
         if user.role != models.Role.LECTURER or user.must_change_password != True or user.is_locked != True:
             return Response({'detail': "User does not need to reset password deadline."}, status=status.HTTP_400_BAD_REQUEST)
 
-        try:
-            hours = int(request.parser_context['kwargs']['hours'])
-            if hours < 0:
-                raise ValueError
-        except (ValueError, TypeError):
-            return Response({'detail': 'Invalid hours value.'}, status=status.HTTP_400_BAD_REQUEST)
-
         user.must_change_password = True
         user.is_locked = False
-        user.reset_password_deadline = timezone.now() + timezone.timedelta(hours=hours)
+        user.reset_password_deadline = timezone.now() + timezone.timedelta(days=1)
         user.save()
         return Response({'detail': 'Password reset deadline set successfully.'}, status=status.HTTP_200_OK)
 
@@ -350,7 +351,7 @@ class PostViewSet(viewsets.ViewSet, generics.ListAPIView):
         return Response(serializers.PostSerializer(post, context={'request': request}).data,
                         status=status.HTTP_201_CREATED)
 
-    @action(detail=True, methods=['patch'], permission_classes=[perms.PostOwner])
+    @action(detail=True, methods=['patch'], url_path='update-post', permission_classes=[perms.PostOwner])
     def update_post(self, request, pk):
 
         post = generics.get_object_or_404(models.Post, pk=pk, is_active=True)
@@ -394,7 +395,7 @@ class PostViewSet(viewsets.ViewSet, generics.ListAPIView):
         return Response({"detail":"No changes were made."}, status=status.HTTP_400_BAD_REQUEST)
 
     
-    @action(detail=True, methods=['post'], url_path='update_post/upload_media', permission_classes=[perms.PostOwner])
+    @action(detail=True, methods=['post'], url_path='update-post/upload-media', permission_classes=[perms.PostOwner])
     def upload_media(self, request, pk):
         post = generics.get_object_or_404(models.Post, pk=pk, is_active=True)
         if request.user != post.author:
@@ -415,7 +416,7 @@ class PostViewSet(viewsets.ViewSet, generics.ListAPIView):
 
         return Response(self.get_serializer(post, context={'request': request}).data, status=status.HTTP_200_OK)
     
-    @action(detail=True, methods=['delete'], url_path=r'update_post/media/(?P<media_id>\d+)', permission_classes=[perms.PostOwner])
+    @action(detail=True, methods=['delete'], url_path=r'update-post/media/(?P<media_id>\d+)', permission_classes=[perms.PostOwner])
     def delete_media(self, request, pk, media_id):
         post = generics.get_object_or_404(models.Post, pk=pk, is_active=True)
         if request.user != post.author:
@@ -468,7 +469,7 @@ class PostViewSet(viewsets.ViewSet, generics.ListAPIView):
 
         return Response(serializers.PostSerializer(share, context={'request': request}).data, status=status.HTTP_201_CREATED)
 
-    @action(detail=True, methods=['delete'], permission_classes=[perms.CanDeletePost])
+    @action(detail=True, methods=['delete'], url_path='delete-post',permission_classes=[perms.CanDeletePost])
     def delete_post(self, request, pk):
         post = generics.get_object_or_404(models.Post, pk=pk, is_active=True)
         if request.user != post.author:
@@ -558,7 +559,7 @@ class CommentViewSet(viewsets.ViewSet):
     permission_classes = [perms.IsAuthenticated]
     pagination_class = paginators.CommentPagination
 
-    @action(detail=True, methods=['patch'], permission_classes=[perms.CommentOwner])
+    @action(detail=True, methods=['patch'], url_path='update-comment', permission_classes=[perms.CommentOwner])
     def update_comment(self, request, pk):
         comment = generics.get_object_or_404(models.Comment, pk=pk, is_active=True)
         
@@ -574,7 +575,7 @@ class CommentViewSet(viewsets.ViewSet):
 
         return Response(serializers.CommentSerializer(comment).data)
 
-    @action(detail=True, methods=['delete'], permission_classes=[perms.CanDeleteComment])
+    @action(detail=True, methods=['delete'], url_path='delete-comment',permission_classes=[perms.CanDeleteComment])
     def delete_comment(self, request, pk):
         comment = self.get_object()
         
@@ -627,13 +628,13 @@ class NotificationViewSet(viewsets.ViewSet, generics.ListAPIView):
     serializer_class = serializers.NotificationSerializer
     pagination_class = paginators.NotificationPagination
 
-    @action(detail=True, methods=['delete'], permission_classes=[perms.ObjectOwner])
+    @action(detail=True, methods=['delete'], url_path='delete-notification',permission_classes=[perms.ObjectOwner])
     def delete_notification(self, request, pk):
         notification = generics.get_object_or_404(models.Notification, pk=pk, is_active=True)
         
         notification.is_active = False
         notification.save()
-        return Response({"detail":"Notification deleted successfully."}, status=status.HTTP_200_OK)
+        return Response(status=status.HTTP_204_NO_CONTENT)
     
 
 class DeviceViewSet(viewsets.ViewSet, generics.ListCreateAPIView):
@@ -644,14 +645,87 @@ class DeviceViewSet(viewsets.ViewSet, generics.ListCreateAPIView):
     def get_queryset(self):
         return self.queryset.filter(user=self.request.user)
     
+class GroupViewSet(viewsets.ViewSet, generics.ListAPIView):
+    queryset = models.Group.objects.filter(is_active=True)
+    serializer_class = serializers.GroupSerialzier
+    permissions_classes = [perms.IsAdmin]
+
+    def create(self, request, *args, **kwargs):
+        data = request.data.copy()
+        data['is_active'] = True
+        serializer = self.serializer_class(data=data)
+        if serializer.is_valid():
+            group = serializer.save()
+            return Response(self.serializer_class(group).data, status=status.HTTP_201_CREATED)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+    @action(detail=True, methods=['delete'], url_path='delete-group')
+    def delete_group(self, pk):
+        group = generics.get_object_or_404(models.Group, pk=pk, is_active=True)
+
+        group.is_active = False
+        group.save()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+def trigger_email(request):
+    user = request.user
+    if not user.is_authenticated:
+        return JsonResponse({'detail': 'Authentication credentials were not provided.'}, status=status.HTTP_401_UNAUTHORIZED)
+    if not user.role == models.Role.ADMIN:
+        return JsonResponse({'detail': 'Permission denied.'}, status=status.HTTP_403_FORBIDDEN)
+    
+    if request.method != 'POST':
+        return JsonResponse({'detail': f'Method {request.method} is not allowed.'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+    
+    subject = request.data.get('subject')
+    content = request.data.get('content')
+    recipient_type = request.data.get('recipient_type')
+
+    if not all([subject, content, recipient_type]):
+        return JsonResponse({'detail': 'subject, content and recipient_type are required.'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    recipient_datas = request.data.get('recipients')
+    if not (recipient_datas and recipient_type != 'all'):
+        return JsonResponse({'detail': 'recipients can not be empty.'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    recipients = set()
+    if recipient_type == 'user':
+        for recipient in recipient_datas:
+            recipients.add(recipient.email)
+    elif recipient_type == 'group':
+        for group in recipient_datas:
+            members = group['members']
+            recipient.update(members.email)
+    elif recipient_type == 'all':
+        recipients.update(
+            models.User.objects.filter(
+                is_active=True, 
+                is_verified=True
+            ).exclude(id=user.id).values_list('email', flat=True)
+        )
+    else:
+        return JsonResponse({'detail': 'invalid recipient_type.'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    send_mail(
+        subject,
+        content,
+        'copcopne@gmail.com',
+        list(recipients),
+        fail_silently=False,
+    )
+    return JsonResponse({'detail': f'Emails sent to {len(recipients)} users.'}, status=status.HTTP_200_OK)
 
 def get_stats(request):
     user = request.user
-    if not user.is_authenticated or not user.role == models.Role.ADMIN:
+    if not user.is_authenticated:
+        return JsonResponse({'detail': 'Authentication credentials were not provided.'}, status=status.HTTP_401_UNAUTHORIZED)
+    if not user.role == models.Role.ADMIN:
         return JsonResponse({'detail': 'Permission denied.'}, status=status.HTTP_403_FORBIDDEN)
 
-    if request.method != 'GET':
-        return JsonResponse({'detail': 'Method not allowed.'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+    if request.method != 'POST':
+        return JsonResponse({'detail': f'Method {request.method} is not allowed.'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
     
     object_type = request.GET.get('object_type')
 
@@ -712,5 +786,3 @@ def get_stats(request):
         'count': count if count else 0,
         'total': obj.count()
     })
-
-
