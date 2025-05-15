@@ -5,50 +5,36 @@ from ou2gether.models import (
     PostType, MessageMedia, Device, Conversation, Group
 )
 
+class UserContextMixin:
+    def get_is_following(self, user):
+        request = self.context.get('request')
+        return request and not request.user.is_anonymous and request.user.followings.filter(following=user, is_active=True).exists()
 
-class UserSerializer(serializers.ModelSerializer):
+    def get_is_myself(self, user):
+        request = self.context.get('request')
+        return request and not request.user.is_anonymous and request.user.id == user.id
+
+    def get_if_mutual(self, user):
+        request = self.context.get('request')
+        if not request or request.user.is_anonymous:
+            return False
+        return (
+            request.user.followings.filter(following=user, is_active=True).exists() and
+            user.followings.filter(following=request.user, is_active=True).exists()
+        )
+
+    def get_number_of_followers(self, user):
+        return user.followings.filter(is_active=True).count()
+
+    def get_number_of_followings(self, user):
+        return user.followers.filter(is_active=True).count()
+
+class UserSerializer(UserContextMixin, serializers.ModelSerializer):
     is_following = serializers.SerializerMethodField()
     is_myself = serializers.SerializerMethodField()
     if_mutual = serializers.SerializerMethodField()
     number_of_followers = serializers.SerializerMethodField()
     number_of_followings = serializers.SerializerMethodField()
-
-    def get_number_of_followers(self, user):
-        request = self.context.get('request')
-
-        if not request or not hasattr(request, 'user') or request.user.is_anonymous:
-            return 0
-        return request.user.followings.filter(following=user, is_active=True).count()
-    
-    def get_number_of_followings(self, user):
-        request = self.context.get('request')
-
-        if not request or not hasattr(request, 'user') or request.user.is_anonymous:
-            return 0
-        return request.user.followings.filter(follower=user, is_active=True).count()
-
-    def get_is_following(self, user):
-        request = self.context.get('request')
-
-        if not request or not hasattr(request, 'user') or request.user.is_anonymous:
-            return False
-        return request.user.followings.filter(following=user, is_active=True).exists()
-    
-    def get_is_myself(self, user):
-        request = self.context.get('request')
-
-        if not request or not hasattr(request, 'user') or request.user.is_anonymous:
-            return False
-        return request.user.id == user.id
-    
-    def get_if_mutual(self, user):
-        request = self.context.get('request')
-
-        if not request or not hasattr(request, 'user') or request.user.is_anonymous:
-            return False
-        request_user = request.user
-        if_mutual = request_user.followings.filter(following=user).exists() and user.followings.filter(following=request_user).exists()
-        return if_mutual
     
     def to_representation(self, instance):
         data = super().to_representation(instance)
@@ -101,72 +87,36 @@ class UserSerializer(serializers.ModelSerializer):
             'is_myself', 'if_mutual'
         ]
         extra_kwargs = {
+            'id': {
+                'read_only': True
+            },
+            'is_verified': {
+                'read_only': True
+            },
+            'date_joined': {
+                'read_only': True
+            },
             'password': {
                 'required': True, 
                 'write_only': True
-            }, 'member_id': {
+            }, 
+            'member_id': {
                 'required': True
-            }
+            },
         }
-        read_only_fields = [
-            'id', 'is_verified', 'date_joined', 'is_following', 
-            'number_of_followers', 'number_of_followings'
-        ]
-        write_only_fields = [
-            'password', 'member_id', 'must_change_password', 
-            'password_set_deadline', 'is_locked'
-        ]
 
 
-class MinimalUserSerializer(serializers.ModelSerializer):
+class MinimalUserSerializer(UserContextMixin, serializers.ModelSerializer):
     is_following = serializers.SerializerMethodField()
     is_myself = serializers.SerializerMethodField()
     if_mutual = serializers.SerializerMethodField()
     number_of_followers = serializers.SerializerMethodField()
     number_of_followings = serializers.SerializerMethodField()
-
-    def get_number_of_followers(self, user):
-        request = self.context.get('request')
-
-        if not request or not hasattr(request, 'user') or request.user.is_anonymous:
-            return 0
-        return request.user.followings.filter(following=user, is_active=True).count()
-    
-    def get_number_of_followings(self, user):
-        request = self.context.get('request')
-
-        if not request or not hasattr(request, 'user') or request.user.is_anonymous:
-            return 0
-        return request.user.followings.filter(follower=user, is_active=True).count()
-
-    def get_is_following(self, user):
-        request = self.context.get('request')
-
-        if not request or not hasattr(request, 'user') or request.user.is_anonymous:
-            return False
-        return request.user.followings.filter(following=user, is_active=True).exists()
-    
-    def get_is_myself(self, user):
-        request = self.context.get('request')
-
-        if not request or not hasattr(request, 'user') or request.user.is_anonymous:
-            return False
-        return request.user.id == user.id
-    
-    def get_if_mutual(self, user):
-        request = self.context.get('request')
-
-        if not request or not hasattr(request, 'user') or request.user.is_anonymous:
-            return False
-        request_user = request.user
-        if_mutual = request_user.followings.filter(following=user).exists() and user.followings.filter(following=request_user).exists()
-        return if_mutual
     
     def to_representation(self, instance):
         data = super().to_representation(instance)
 
         data['avatar'] = instance.avatar.url if instance.avatar else ''
-        data['cover'] = instance.cover.url if instance.cover else ''
 
         return data
     
@@ -178,12 +128,18 @@ class MinimalUserSerializer(serializers.ModelSerializer):
             'is_myself', 'if_mutual'
             ]
         read_only_fields = [
-            'id', 'is_following', 'number_of_followers', 'number_of_followings',
-            'is_myself', 'if_mutual'
+            'id'
         ]
 
 
 class CustomUserSerialzier(serializers.ModelSerializer):
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+
+        data['avatar'] = instance.avatar.url if instance.avatar else ''
+
+        return data
 
     class Meta:
         model = User
@@ -230,7 +186,6 @@ class PostPollSerializer(serializers.ModelSerializer):
         return poll
 
     def update(self, instance, validated_data):
-        post = serializers.PrimaryKeyRelatedField(queryset=Post.objects.filter(is_active=True), write_only=True)
         options_data = validated_data.pop('options', [])
 
         instance.question = validated_data.get('question', instance.question)
@@ -301,7 +256,7 @@ class PostSerializer(serializers.ModelSerializer):
     #     return None
 
     def get_media(self, post):
-        return PostMediaSerializer(post.media.filter(is_active=True).all(), many=True).data
+        return PostMediaSerializer(post.media.filter(is_active=True), many=True).data
     
     def get_my_interaction(self, post):
         user = self.context['request'].user

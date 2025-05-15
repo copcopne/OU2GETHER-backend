@@ -158,3 +158,11 @@ REST_FRAMEWORK = {
     ]
 }
 FILE_UPLOAD_MAX_MEMORY_SIZE = 25 * 1024 * 1024
+
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'copcopne@gmail.com'
+EMAIL_HOST_PASSWORD = 'oesu yxbf lrft motd'
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER

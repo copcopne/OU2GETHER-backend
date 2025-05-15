@@ -155,7 +155,7 @@ class Notification(BaseModel):
 
 
 class Group(BaseModel):
-    name = models.CharField(max_length=100)
+    name = models.CharField(max_length=100, null=False, blank=False)
     members = models.ManyToManyField(User, related_name='notify_groups')
     
     class Meta:
