@@ -12,6 +12,9 @@ from django.utils.timezone import make_aware
 from datetime import datetime
 from django.core.mail import send_mail
 from django.db.models import Q
+from django.views.decorators.csrf import csrf_exempt
+from rest_framework.decorators import api_view, authentication_classes, permission_classes
+from rest_framework.authentication import TokenAuthentication
 
 
 def _handle_media_upload(files, comment_obj=None, post_obj=None):
@@ -691,13 +694,21 @@ class GroupViewSet(viewsets.ViewSet, generics.ListAPIView):
 
     def create(self, request, *args, **kwargs):
         data = request.data.copy()
-        data['is_active'] = True
-        serializer = self.serializer_class(data=data)
-        if serializer.is_valid():
-            group = serializer.save()
-            return Response(self.serializer_class(group).data, status=status.HTTP_201_CREATED)
-        else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        name = data.get('name')
+        member_ids = data.getlist('members', [])
+        if not member_ids:
+            return Response({"detail": "Member is required for groups."}, status=status.HTTP_400_BAD_REQUEST)
+        group = models.Group.objects.create(name=name, is_active=True)
+
+        for member_id in member_ids:
+            try:
+                user = models.User.objects.get(id=member_id, is_active=True)
+                group.members.add(user)
+            except models.User.DoesNotExist:
+                continue
+
+        serializer = self.serializer_class(group)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
     @action(detail=True, methods=['delete'], url_path='delete-group')
@@ -710,17 +721,11 @@ class GroupViewSet(viewsets.ViewSet, generics.ListAPIView):
         group.is_active = False
         group.save()
         return Response(status=status.HTTP_204_NO_CONTENT)
-
+    
+@api_view(['POST'])
+@permission_classes([perms.IsAdmin])
+@csrf_exempt
 def trigger_email(request):
-    user = request.user
-    if not user.is_authenticated:
-        return JsonResponse({'detail': 'Authentication credentials were not provided.'}, status=status.HTTP_401_UNAUTHORIZED)
-    if not user.role == models.Role.ADMIN:
-        return JsonResponse({'detail': 'Permission denied.'}, status=status.HTTP_403_FORBIDDEN)
-    
-    if request.method != 'POST':
-        return JsonResponse({'detail': f'Method {request.method} is not allowed.'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
-    
     subject = request.data.get('subject')
     content = request.data.get('content')
     recipient_type = request.data.get('recipient_type')
@@ -728,19 +733,23 @@ def trigger_email(request):
     if not all([subject, content, recipient_type]):
         return JsonResponse({'detail': 'subject, content and recipient_type are required.'}, status=status.HTTP_400_BAD_REQUEST)
     
-    recipient_datas = request.data.get('recipients')
-    if not (recipient_datas and recipient_type != 'all'):
+    recipient_ids = request.data.getlist('recipients', [])
+    if not (recipient_ids or recipient_type == 'all'):
         return JsonResponse({'detail': 'recipients can not be empty.'}, status=status.HTTP_400_BAD_REQUEST)
-    
     recipients = set()
     if recipient_type == 'user':
-        for recipient in recipient_datas:
-            recipients.add(recipient.email)
+        for recipient_id in recipient_ids:
+            user = models.User.objects.filter(id=recipient_id, is_active=True, is_verified=True).first()
+            if user:
+                recipients.add(user.email)
     elif recipient_type == 'group':
-        for group in recipient_datas:
-            members = group['members']
-            recipient.update(members.email)
+        for group_id in recipient_ids:
+            group = models.Group.objects.filter(id=group_id, is_active=True).first()
+            if group:
+                emails = group.members.filter(is_active=True, is_verified=True).values_list('email', flat=True)
+                recipients.update(emails)
     elif recipient_type == 'all':
+        user = request.user
         recipients.update(
             models.User.objects.filter(
                 is_active=True, 
@@ -759,16 +768,10 @@ def trigger_email(request):
     )
     return JsonResponse({'detail': f'Emails sent to {len(recipients)} users.'}, status=status.HTTP_200_OK)
 
+@api_view(['POST'])
+@permission_classes([perms.IsAdmin])
+@csrf_exempt
 def get_stats(request):
-    user = request.user
-    if not user.is_authenticated:
-        return JsonResponse({'detail': 'Authentication credentials were not provided.'}, status=status.HTTP_401_UNAUTHORIZED)
-    if not user.role == models.Role.ADMIN:
-        return JsonResponse({'detail': 'Permission denied.'}, status=status.HTTP_403_FORBIDDEN)
-
-    if request.method != 'POST':
-        return JsonResponse({'detail': f'Method {request.method} is not allowed.'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
-    
     object_type = request.GET.get('object_type')
 
     if not object_type:
