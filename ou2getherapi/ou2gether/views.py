@@ -11,6 +11,7 @@ from django.http import JsonResponse
 from django.utils.timezone import make_aware
 from datetime import datetime
 from django.core.mail import send_mail
+from django.db.models import Q
 
 
 def _handle_media_upload(files, comment_obj=None, post_obj=None):
@@ -150,16 +151,19 @@ class UserViewSet(viewsets.ViewSet, generics.ListAPIView):
 
     @action(detail=True, methods=['post'], url_path='block-user',permission_classes=[perms.IsNotRestricted])
     def block_user(self, request, pk):
-        target_user = generics.get_object_or_404(models.User, pk=pk, is_active=True)
-        if request.user == target_user:
-            return Response({'detail': 'Cannot block yourself.'}, status=status.HTTP_400_BAD_REQUEST)
-
+        target_user = self.get_object()
+        if target_user.is_active == False:
+            return Response({'detail': 'No User matches the given query.'}, status=status.HTTP_404_NOT_FOUND)
+        
         models.Block.objects.create(user=request.user, blocked_user=target_user)
         return Response({'detail': 'User blocked successfully.'}, status=status.HTTP_200_OK)
     
     @action(detail=True, methods=['post'], url_path='unblock-user',permission_classes=[permissions.IsAuthenticated])
     def unblock_user(self, request, pk):
-        target_user = generics.get_object_or_404(models.User, pk=pk, is_active=True)
+        target_user = self.get_object()
+        if target_user.is_active == False:
+            return Response({'detail': 'No User matches the given query.'}, status=status.HTTP_404_NOT_FOUND)
+        
         if request.user == target_user:
             return Response({'detail': 'Cannot unblock yourself.'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -168,7 +172,10 @@ class UserViewSet(viewsets.ViewSet, generics.ListAPIView):
 
     @action(detail=True, methods=['post'], permission_classes=[perms.IsNotRestricted])
     def follow(self, request, pk):
-        user_to_follow = generics.get_object_or_404(models.User, pk=pk, is_active=True)
+        user_to_follow = self.get_object()
+        if user_to_follow.is_active == False:
+            return Response({'detail': 'No User matches the given query.'}, status=status.HTTP_404_NOT_FOUND)
+        
         user_who_follow = request.user
 
         follow_obj = user_who_follow.followings.filter(following=user_to_follow).first()
@@ -184,7 +191,10 @@ class UserViewSet(viewsets.ViewSet, generics.ListAPIView):
     
     @action(detail=True, methods=['get'], permission_classes=[perms.IsNotRestricted])
     def followers(self, request, pk):
-        user = generics.get_object_or_404(models.User, pk=pk, is_active=True)
+        user = self.get_object()
+        if user.is_active == False:
+            return Response({'detail': 'No User matches the given query.'}, status=status.HTTP_404_NOT_FOUND)
+        
         followers_qs = _get_followers_or_following(user, is_follower=True)
 
         page = self.paginate_queryset(followers_qs)
@@ -198,7 +208,10 @@ class UserViewSet(viewsets.ViewSet, generics.ListAPIView):
     
     @action(detail=True, methods=['get'], permission_classes=[perms.IsNotRestricted])
     def following(self, request, pk):
-        user = generics.get_object_or_404(models.User, pk=pk, is_active=True)
+        user = self.get_object()
+        if user.is_active == False:
+            return Response({'detail': 'No User matches the given query.'}, status=status.HTTP_404_NOT_FOUND)
+        
         following_qs = _get_followers_or_following(user, is_follower=False)
 
         page = self.paginate_queryset(following_qs)
@@ -223,7 +236,10 @@ class UserViewSet(viewsets.ViewSet, generics.ListAPIView):
     
     @action(detail=True, methods=['post'], permission_classes=[permissions.IsAdminUser])
     def verify(self, request, pk):
-        user = generics.get_object_or_404(models.User, pk=pk, is_active=True)
+        user = self.get_object()
+        if user.is_active == False:
+            return Response({'detail': 'No User matches the given query.'}, status=status.HTTP_404_NOT_FOUND)
+        
         if user.is_verified:
             return Response({'detail': 'User is already verified.'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -240,7 +256,10 @@ class UserViewSet(viewsets.ViewSet, generics.ListAPIView):
     
     @action(detail=True, methods=['post'], url_path='reset-password-deadline', permission_classes=[permissions.IsAdminUser])
     def reset_password_deadline(self, request, pk):
-        user = generics.get_object_or_404(models.User, pk=pk, is_active=True)
+        user = self.get_object()
+        if user.is_active == False:
+            return Response({'detail': 'No User matches the given query.'}, status=status.HTTP_404_NOT_FOUND)
+        
         if user.role != models.Role.LECTURER or user.must_change_password != True or user.is_locked != True:
             return Response({'detail': "User does not need to reset password deadline."}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -271,10 +290,6 @@ class PostViewSet(viewsets.ViewSet, generics.ListAPIView):
 
         return queryset
 
-    def get_permissions(self):
-        if self.action == 'retrieve':
-            return [perms.IsNotRestricted()]
-        return super().get_permissions()
     
     def retrieve(self, request, pk):
         post = generics.get_object_or_404(models.Post, pk=pk, is_active=True)
@@ -343,20 +358,14 @@ class PostViewSet(viewsets.ViewSet, generics.ListAPIView):
             post.poll = poll
             post.save()
 
-            # for opt in poll_data.get('options', []):
-            #     opt_serializer = serializers.PollOptionSerializer(data=opt)
-            #     opt_serializer.is_valid(raise_exception=True)
-            #     opt_serializer.save(post_poll=poll)
-
         return Response(serializers.PostSerializer(post, context={'request': request}).data,
                         status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=['patch'], url_path='update-post', permission_classes=[perms.PostOwner])
     def update_post(self, request, pk):
-
-        post = generics.get_object_or_404(models.Post, pk=pk, is_active=True)
-        if request.user != post.author:
-            return Response({"detail":"You don't have permission to edit this post."}, status=status.HTTP_403_FORBIDDEN)
+        post = self.get_object()
+        if post.is_active == False:
+            return Response({'detail': 'No Post matches the given query.'}, status=status.HTTP_404_NOT_FOUND)  
         
         is_edited = False
         for k, v in request.data.items():
@@ -397,7 +406,10 @@ class PostViewSet(viewsets.ViewSet, generics.ListAPIView):
     
     @action(detail=True, methods=['post'], url_path='update-post/upload-media', permission_classes=[perms.PostOwner])
     def upload_media(self, request, pk):
-        post = generics.get_object_or_404(models.Post, pk=pk, is_active=True)
+        post = self.get_object()
+        if post.is_active == False:
+            return Response({'detail': 'No Post matches the given query.'}, status=status.HTTP_404_NOT_FOUND)
+        
         if request.user != post.author:
             return Response({"detail":"You don't have permission to edit this post."}, 
                             status=status.HTTP_403_FORBIDDEN)
@@ -418,11 +430,10 @@ class PostViewSet(viewsets.ViewSet, generics.ListAPIView):
     
     @action(detail=True, methods=['delete'], url_path=r'update-post/media/(?P<media_id>\d+)', permission_classes=[perms.PostOwner])
     def delete_media(self, request, pk, media_id):
-        post = generics.get_object_or_404(models.Post, pk=pk, is_active=True)
-        if request.user != post.author:
-            return Response({"detail":"You don't have permission to edit this post."}, 
-                            status=status.HTTP_403_FORBIDDEN)
-    
+        post = self.get_object()
+        if post.is_active == False:
+            return Response({'detail': 'No Post matches the given query.'}, status=status.HTTP_404_NOT_FOUND)  
+        
         if post.post_type != models.PostType.MEDIA:
             return Response({"detail":"This post is not a media post."}, 
                             status=status.HTTP_400_BAD_REQUEST)
@@ -444,8 +455,9 @@ class PostViewSet(viewsets.ViewSet, generics.ListAPIView):
 
     @action(detail=True, methods=['post'])
     def share(self, request, pk):
-        print(timezone.localtime(timezone.now()))
-        shared_post = generics.get_object_or_404(models.Post, pk=pk, is_active=True)
+        shared_post = self.get_object()
+        if shared_post.is_active == False:
+            return Response({'detail': 'No Post matches the given query.'}, status=status.HTTP_404_NOT_FOUND)  
         
         while shared_post.is_shared and shared_post.shared_post:
             shared_post = shared_post.shared_post
@@ -471,9 +483,9 @@ class PostViewSet(viewsets.ViewSet, generics.ListAPIView):
 
     @action(detail=True, methods=['delete'], url_path='delete-post',permission_classes=[perms.CanDeletePost])
     def delete_post(self, request, pk):
-        post = generics.get_object_or_404(models.Post, pk=pk, is_active=True)
-        if request.user != post.author:
-            return Response({"detail":"You don't have permission to delete this post."}, status=status.HTTP_403_FORBIDDEN)
+        post = self.get_object()
+        if post.is_active == False:
+            return Response({'detail': 'No Post matches the given query.'}, status=status.HTTP_404_NOT_FOUND)  
         
         post.is_active = False
         post.save()
@@ -481,9 +493,11 @@ class PostViewSet(viewsets.ViewSet, generics.ListAPIView):
     
     @action(detail=True, methods=['get'], permission_classes=[perms.IsNotRestricted])
     def comments(self, request, pk):
-        post = generics.get_object_or_404(models.Post, pk=pk, is_active=True)
+        post = self.get_object()
+        if post.is_active == False:
+            return Response({'detail': 'No Post matches the given query.'}, status=status.HTTP_404_NOT_FOUND)  
+        
         comments = models.Comment.objects.filter(post=post, is_active=True)
-
         page = self.paginate_queryset(comments)
         if page is not None:
             serializer = serializers.CommentSerializer(page, many=True, context={'request': request})
@@ -494,7 +508,10 @@ class PostViewSet(viewsets.ViewSet, generics.ListAPIView):
 
     @action(detail=True, methods=['post'], permission_classes=[perms.IsNotRestricted])
     def comment(self, request, pk):
-        post = generics.get_object_or_404(models.Post, pk=pk, is_active=True)
+        post = self.get_object()
+        if post.is_active == False:
+            return Response({'detail': 'No Post matches the given query.'}, status=status.HTTP_404_NOT_FOUND)  
+        
         comment_data = request.data.copy()
         comment_data['post'] = post.id
         comment_data['author'] = request.user.id
@@ -514,9 +531,11 @@ class PostViewSet(viewsets.ViewSet, generics.ListAPIView):
     
     @action(detail=True, methods=['get'], permission_classes=[perms.IsNotRestricted])
     def interactions(self, request, pk):
-        post = generics.get_object_or_404(models.Post, pk=pk, is_active=True)
+        post = self.get_object()
+        if post.is_active == False:
+            return Response({'detail': 'No Post matches the given query.'}, status=status.HTTP_404_NOT_FOUND)  
+        
         interactions = models.Interaction.objects.filter(post=post, is_active=True)
-
         page = self.paginate_queryset(interactions)
         if page is not None:
             serializer = serializers.InteractionListSerializer(page, many=True, context={'request': request})
@@ -528,12 +547,18 @@ class PostViewSet(viewsets.ViewSet, generics.ListAPIView):
 
     @action(detail=True, methods=['post'], url_path=r'interact/(?P<reaction>\w+)', permission_classes=[perms.IsNotRestricted])
     def interact(self, request, pk, reaction=None):
-        post = generics.get_object_or_404(models.Post, pk=pk, is_active=True)
+        post = self.get_object()
+        if post.is_active == False:
+            return Response({'detail': 'No Post matches the given query.'}, status=status.HTTP_404_NOT_FOUND)  
+        
         return _handle_interact(request, post, reaction, is_post=True)
     
     @action(detail=True, methods=['post'], url_path='vote', permission_classes=[perms.IsNotRestricted])
     def vote(self, request, pk):
-        post = generics.get_object_or_404(models.Post, pk=pk, is_active=True)
+        post = self.get_object()
+        if post.is_active == False:
+            return Response({'detail': 'No Post matches the given query.'}, status=status.HTTP_404_NOT_FOUND)  
+        
         if post.post_type != models.PostType.POLL:
             return Response({"detail":"This post is not a poll."}, status=status.HTTP_400_BAD_REQUEST)
         
@@ -561,7 +586,9 @@ class CommentViewSet(viewsets.ViewSet):
 
     @action(detail=True, methods=['patch'], url_path='update-comment', permission_classes=[perms.CommentOwner])
     def update_comment(self, request, pk):
-        comment = generics.get_object_or_404(models.Comment, pk=pk, is_active=True)
+        comment = self.get_object()
+        if comment.is_active == False:
+            return Response({'detail': 'No Comment matches the given query.'}, status=status.HTTP_404_NOT_FOUND)  
         
         comment.is_edited = True
         content = request.data.get('content')
@@ -578,14 +605,19 @@ class CommentViewSet(viewsets.ViewSet):
     @action(detail=True, methods=['delete'], url_path='delete-comment',permission_classes=[perms.CanDeleteComment])
     def delete_comment(self, request, pk):
         comment = self.get_object()
-        
+        if comment.is_active == False:
+            return Response({'detail': 'No Comment matches the given query.'}, status=status.HTTP_404_NOT_FOUND)  
+         
         comment.is_active = False
         comment.save()
         return Response(status=status.HTTP_204_NO_CONTENT)
     
     @action(detail=True, methods=['post'], permission_classes=[perms.IsNotRestricted])
     def reply(self, request, pk):
-        comment = generics.get_object_or_404(models.Comment, pk=pk, is_active=True)
+        comment = self.get_object()
+        if comment.is_active == False:
+            return Response({'detail': 'No Comment matches the given query.'}, status=status.HTTP_404_NOT_FOUND)  
+
         reply_data = request.data.copy()
         reply_data['post'] = comment.post.id
         reply_data['author'] = request.user.id
@@ -605,14 +637,19 @@ class CommentViewSet(viewsets.ViewSet):
     
     @action(detail=True, methods=['post'], url_path=r'interact/(?P<reaction>\w+)', permission_classes=[perms.IsNotRestricted])
     def interact(self, request, pk, reaction=None):
-        comment = generics.get_object_or_404(models.Comment, pk=pk, is_active=True)
+        comment = self.get_object()
+        if comment.is_active == False:
+            return Response({'detail': 'No Comment matches the given query.'}, status=status.HTTP_404_NOT_FOUND)  
+        
         return _handle_interact(request, comment, reaction, is_post=False)
     
     @action(detail=True, methods=['get'], permission_classes=[perms.IsNotRestricted])
     def interactions(self, request, pk):
-        comment = generics.get_object_or_404(models.Comment, pk=pk, is_active=True)
+        comment = self.get_object()
+        if comment.is_active == False:
+            return Response({'detail': 'No Comment matches the given query.'}, status=status.HTTP_404_NOT_FOUND)  
+        
         interactions = models.Interaction.objects.filter(comment=comment, is_active=True)
-
         page = self.paginate_queryset(interactions)
         if page is not None:
             serializer = serializers.InteractionListSerializer(page, many=True, context={'request': request})
@@ -630,7 +667,9 @@ class NotificationViewSet(viewsets.ViewSet, generics.ListAPIView):
 
     @action(detail=True, methods=['delete'], url_path='delete-notification',permission_classes=[perms.ObjectOwner])
     def delete_notification(self, request, pk):
-        notification = generics.get_object_or_404(models.Notification, pk=pk, is_active=True)
+        notification = self.get_object()
+        if notification.is_active == False:
+            return Response({'detail': 'No Notification matches the given query.'}, status=status.HTTP_404_NOT_FOUND)  
         
         notification.is_active = False
         notification.save()
@@ -648,7 +687,7 @@ class DeviceViewSet(viewsets.ViewSet, generics.ListCreateAPIView):
 class GroupViewSet(viewsets.ViewSet, generics.ListAPIView):
     queryset = models.Group.objects.filter(is_active=True)
     serializer_class = serializers.GroupSerialzier
-    permissions_classes = [perms.IsAdmin]
+    permission_classes = [perms.IsAdmin]
 
     def create(self, request, *args, **kwargs):
         data = request.data.copy()
@@ -662,8 +701,11 @@ class GroupViewSet(viewsets.ViewSet, generics.ListAPIView):
 
 
     @action(detail=True, methods=['delete'], url_path='delete-group')
-    def delete_group(self, pk):
-        group = generics.get_object_or_404(models.Group, pk=pk, is_active=True)
+    def delete_group(self, request, pk):
+        group = self.get_object()
+
+        if group.is_active == False:
+            return Response({'detail': 'No Group matches the given query.'}, status=status.HTTP_404_NOT_FOUND)  
 
         group.is_active = False
         group.save()
