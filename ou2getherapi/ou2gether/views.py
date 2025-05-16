@@ -530,7 +530,7 @@ class PostViewSet(viewsets.ViewSet, generics.ListAPIView):
         if files:
             _handle_media_upload(files, comment_obj=comment)
 
-        return Response(serializers.CommentSerializer(comment).data, status=status.HTTP_201_CREATED)
+        return Response(serializers.CommentSerializer(comment, context={'request': request}).data, status=status.HTTP_201_CREATED)
     
     @action(detail=True, methods=['get'], permission_classes=[perms.IsNotRestricted])
     def interactions(self, request, pk):
