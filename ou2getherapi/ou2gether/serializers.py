@@ -305,6 +305,7 @@ class CommentSerializer(serializers.ModelSerializer):
     parent_comment = serializers.PrimaryKeyRelatedField(queryset=Comment.objects.filter(is_active=True), required=False)
     media = CommentMediaSerializer(many=False, required=False)
     interactions = serializers.SerializerMethodField()
+    interaction_count = serializers.IntegerField(source ='interactions.count', read_only=True)
     author = MinimalUserSerializer(read_only=True)
     my_interaction = serializers.SerializerMethodField()
 
@@ -361,7 +362,7 @@ class CommentSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'post', 'author', 'content',
             'media', 'is_edited', 'interactions', 'my_interaction', 'created_at', 'updated_at', 
-            'parent_comment'
+            'parent_comment', 'interaction_count'
         ]
         read_only_fields = [
             'author', 'is_edited', 'interactions', 'my_interaction', 'created_at', 
