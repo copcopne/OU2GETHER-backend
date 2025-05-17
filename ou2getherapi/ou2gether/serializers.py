@@ -24,10 +24,10 @@ class UserContextMixin:
         )
 
     def get_number_of_followers(self, user):
-        return user.followings.filter(is_active=True).count()
+        return user.followers.filter(is_active=True).count()
 
     def get_number_of_followings(self, user):
-        return user.followers.filter(is_active=True).count()
+        return user.followings.filter(is_active=True).count()
 
 class UserSerializer(UserContextMixin, serializers.ModelSerializer):
     is_following = serializers.SerializerMethodField()
