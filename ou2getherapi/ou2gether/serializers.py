@@ -125,7 +125,7 @@ class MinimalUserSerializer(UserContextMixin, serializers.ModelSerializer):
         fields = [
             'id', 'username', 'first_name', 'last_name', 'avatar', 
             'is_following', 'number_of_followers', 'number_of_followings',
-            'is_myself', 'if_mutual'
+            'is_myself', 'if_mutual', 'member_id'
             ]
         read_only_fields = [
             'id'
@@ -144,10 +144,10 @@ class CustomUserSerialzier(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = [
-            'id', 'username', 'first_name', 'last_name', 'avatar', 'email'
+            'id', 'username', 'first_name', 'last_name', 'avatar', 'email', 'member_id'
             ]
         read_only_fields = [
-            'id', 'username', 'first_name', 'last_name', 'avatar', 'email'
+            'id', 'username', 'first_name', 'last_name', 'avatar', 'email', 'member_id'
         ]
 
 class PostMediaSerializer(serializers.ModelSerializer):
