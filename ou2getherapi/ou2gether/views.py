@@ -13,8 +13,7 @@ from datetime import datetime
 from django.core.mail import send_mail
 from django.db.models import Q
 from django.views.decorators.csrf import csrf_exempt
-from rest_framework.decorators import api_view, authentication_classes, permission_classes
-from rest_framework.authentication import TokenAuthentication
+from rest_framework.decorators import api_view, permission_classes
 
 
 def _handle_media_upload(files, comment_obj=None, post_obj=None):
@@ -141,10 +140,15 @@ class UserViewSet(viewsets.ViewSet, generics.ListAPIView):
     @action(methods=['get', 'patch'], url_path='current-user', detail=False, permission_classes=[permissions.IsAuthenticated])
     def get_current_user(self, request):
         u = request.user
+        if u.is_locked == True:
+            return Response({'detail': 'Your account has been locked.'}, status=status.HTTP_403_FORBIDDEN)
 
         if request.method == 'PATCH':
             for k, v in request.data.items():
                 if k == 'password':
+                    if u.must_change_password == True:
+                        u.must_change_password = False
+                        u.reset_password_deadline = None
                     u.set_password(v)
                 elif k in ['avatar', 'cover', 'first_name', 'last_name', 'bio', 'email']:
                     setattr(u, k, v)
