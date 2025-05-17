@@ -3,7 +3,7 @@ from ou2gether.models import Post, Comment, Block, Role
 
 class IsAdmin(permissions.IsAuthenticated):
     def has_permission(self, request, view):
-        return super().has_permission(request, view)
+        return super().has_permission(request, view) and request.user.role == 0
 
 class IsAuthenticated(permissions.IsAuthenticated):
     def has_permission(self, request, view):
@@ -35,7 +35,6 @@ class CanDeletePost(permissions.BasePermission):
         is_admin = request.user and request.user.role == Role.ADMIN
         
         return is_post_owner or is_admin
-
 
 class IsNotRestricted(permissions.IsAuthenticated):
     def has_object_permission(self, request, view, obj):

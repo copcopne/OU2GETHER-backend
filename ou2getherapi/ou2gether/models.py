@@ -60,6 +60,9 @@ class Post(BaseModel):
     shared_post = models.ForeignKey("self", on_delete=models.SET_NULL, null=True, blank=True, related_name='shares')
     
     author = models.ForeignKey(User, on_delete=models.CASCADE)
+
+    def __str__(self):
+        return f'ID: {self.id}, Author: {self.author}'
     
     class Meta:
         ordering = ['-created_at']
