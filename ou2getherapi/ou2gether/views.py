@@ -502,7 +502,9 @@ class PostViewSet(viewsets.ViewSet, generics.ListAPIView):
     def comments(self, request, pk):
         post = self.get_object()
         if post.is_active == False:
-            return Response({'detail': 'No Post matches the given query.'}, status=status.HTTP_404_NOT_FOUND)  
+            return Response({'detail': 'No Post matches the given query.'}, status=status.HTTP_404_NOT_FOUND)
+        if post.is_commendable == False:
+            return Response({'detail': 'Comments are restricted on this post.'}, status=status.HTTP_403_FORBIDDEN)  
         
         comments = models.Comment.objects.filter(post=post, is_active=True)
         page = self.paginate_queryset(comments)
