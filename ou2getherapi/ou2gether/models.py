@@ -44,6 +44,9 @@ class User(AbstractUser, BaseModel):
                 self.is_locked = True
                 self.save()
 
+    class Meta:
+        ordering = ['-created_at']
+
 
 class PostType(models.IntegerChoices):
     TEXT = 0, 'Text'
@@ -88,6 +91,9 @@ class PollOption(BaseModel):
 
     post_poll = models.ForeignKey(PostPoll, on_delete=models.CASCADE, related_name='options')
 
+    class Meta:
+        ordering = ['-created_at']
+
 
 class PollVote(BaseModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='votes')
@@ -122,6 +128,7 @@ class Interaction(BaseModel):
                 name='unique_user_comment_interaction'
             )
         ]
+        ordering = ['-created_at']
 
 
 class Comment(BaseModel):
@@ -131,6 +138,9 @@ class Comment(BaseModel):
     author = models.ForeignKey(User, on_delete=models.CASCADE)
     post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='comments')
     parent_comment = models.ForeignKey("self", on_delete=models.CASCADE, null=True, blank=True, db_index=True, related_name='replies')
+
+    class Meta:
+        ordering = ['-created_at']
 
 
 class CommentMedia(MediaModel):
@@ -210,6 +220,7 @@ class Follow(BaseModel):
 
     class Meta:
         unique_together = ('follower', 'following')
+        ordering = ['-created_at']
 
 
 class Block(BaseModel):
@@ -218,3 +229,4 @@ class Block(BaseModel):
 
     class Meta:
         unique_together = ('user', 'blocked_user')
+        ordering = ['-created_at']
