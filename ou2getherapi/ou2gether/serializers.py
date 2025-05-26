@@ -224,9 +224,9 @@ class PostSerializer(serializers.ModelSerializer):
     is_commendable = serializers.BooleanField(required=False, default=True)
     interactions = serializers.SerializerMethodField()
     my_interaction = serializers.SerializerMethodField()
-    interaction_count = serializers.IntegerField(source ='interactions.count', read_only=True)
-    comment_count = serializers.IntegerField(source='comments.count', read_only=True)
-    share_count = serializers.IntegerField(source='shares.count', read_only=True)
+    interaction_count = serializers.SerializerMethodField()
+    comment_count = serializers.SerializerMethodField()
+    share_count = serializers.SerializerMethodField()
 
     def create(self, validated_data):
         validated_data['author'] = self.context['request'].user
@@ -278,6 +278,15 @@ class PostSerializer(serializers.ModelSerializer):
             for choice in InteractionChoices
         }
     
+    def get_interaction_count(self, post):
+        return post.interactions.filter(is_active=True).count()
+    
+    def get_comment_count(self, post):
+        return post.comments.filter(is_active=True).count()
+    
+    def get_share_count(self, post):
+        return post.shared_posts.filter(is_active=True).count()
+    
     class Meta:
         model = Post
         fields = [
@@ -305,7 +314,7 @@ class CommentSerializer(serializers.ModelSerializer):
     parent_comment = serializers.PrimaryKeyRelatedField(queryset=Comment.objects.filter(is_active=True), required=False)
     media = CommentMediaSerializer(many=False, required=False)
     interactions = serializers.SerializerMethodField()
-    interaction_count = serializers.IntegerField(source ='interactions.count', read_only=True)
+    interaction_count = serializers.SerializerMethodField()
     author = MinimalUserSerializer(read_only=True)
     my_interaction = serializers.SerializerMethodField()
 
@@ -356,6 +365,9 @@ class CommentSerializer(serializers.ModelSerializer):
             return InteractionChoices(interaction.type).label.lower()
         except Interaction.DoesNotExist:
             return None
+        
+    def get_interaction_count(self, comment):
+        return comment.interactions.filter(is_active=True).count()
 
     class Meta:
         model = Comment
