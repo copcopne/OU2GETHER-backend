@@ -285,7 +285,7 @@ class PostSerializer(serializers.ModelSerializer):
         return post.comments.filter(is_active=True).count()
     
     def get_share_count(self, post):
-        return post.shared_posts.filter(is_active=True).count()
+        return post.shares.filter(is_active=True).count()
     
     class Meta:
         model = Post
