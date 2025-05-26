@@ -588,7 +588,7 @@ class PostViewSet(viewsets.ViewSet, generics.ListAPIView):
                         status=status.HTTP_200_OK)
 
 
-class CommentViewSet(viewsets.ViewSet):
+class CommentViewSet(viewsets.GenericViewSet):
     queryset = models.Comment.objects.filter(is_active=True)
     serializer_class = serializers.CommentSerializer
     permission_classes = [perms.IsAuthenticated]
