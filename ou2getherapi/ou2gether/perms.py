@@ -23,6 +23,10 @@ class ObjectOwner(permissions.IsAuthenticated):
     
 class CanDeleteComment(permissions.BasePermission):
     def has_object_permission(self, request, view, obj):
+        user = request.user
+        if not user or not user.is_authenticated:
+            return False
+        
         is_comment_owner = request.user == obj.author
         is_post_owner = request.user == obj.post.author
         is_admin = request.user and request.user.role == Role.ADMIN
@@ -31,6 +35,10 @@ class CanDeleteComment(permissions.BasePermission):
 
 class CanDeletePost(permissions.BasePermission):
     def has_object_permission(self, request, view, obj):
+        user = request.user
+        if not user or not user.is_authenticated:
+            return False
+        
         is_post_owner = request.user == obj.author
         is_admin = request.user and request.user.role == Role.ADMIN
         

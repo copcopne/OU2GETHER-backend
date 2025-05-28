@@ -367,6 +367,16 @@ class PostViewSet(viewsets.ViewSet, generics.ListAPIView):
 
         return Response(serializers.PostSerializer(post, context={'request': request}).data,
                         status=status.HTTP_201_CREATED)
+    
+    def destroy(self, request, pk):
+        post = generics.get_object_or_404(models.Post, pk=pk, is_active=True)
+        
+        if not perms.CanDeletePost().has_object_permission(request, self, post):
+            return Response({'detail': 'You do not have permission to delete this post.'}, status=status.HTTP_403_FORBIDDEN)
+
+        post.is_active = False
+        post.save()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=True, methods=['patch'], url_path='update-post', permission_classes=[perms.PostOwner])
     def update_post(self, request, pk):
@@ -488,16 +498,6 @@ class PostViewSet(viewsets.ViewSet, generics.ListAPIView):
 
         return Response(serializers.PostSerializer(share, context={'request': request}).data, status=status.HTTP_201_CREATED)
 
-    @action(detail=True, methods=['delete'], url_path='delete-post',permission_classes=[perms.CanDeletePost])
-    def delete_post(self, request, pk):
-        post = self.get_object()
-        if post.is_active == False:
-            return Response({'detail': 'No Post matches the given query.'}, status=status.HTTP_404_NOT_FOUND)  
-        
-        post.is_active = False
-        post.save()
-        return Response(status=status.HTTP_204_NO_CONTENT)
-    
     @action(detail=True, methods=['get'], permission_classes=[perms.IsNotRestricted])
     def comments(self, request, pk):
         post = self.get_object()
@@ -594,6 +594,17 @@ class CommentViewSet(viewsets.GenericViewSet):
     permission_classes = [perms.IsAuthenticated]
     pagination_class = paginators.CommentPagination
 
+
+    def destroy(self, request, pk):
+        comment = generics.get_object_or_404(models.Comments, pk=pk, is_active=True)
+
+        if not perms.CanDeleteComment().has_object_permission(request, self, comment):
+            return Response({'detail': 'You do not have permission to delete this comment.'}, status=status.HTTP_403_FORBIDDEN)
+         
+        comment.is_active = False
+        comment.save()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
     @action(detail=True, methods=['patch'], url_path='update-comment', permission_classes=[perms.CommentOwner])
     def update_comment(self, request, pk):
         comment = self.get_object()
@@ -611,16 +622,6 @@ class CommentViewSet(viewsets.GenericViewSet):
             _handle_media_upload(files, comment_obj=comment)
 
         return Response(serializers.CommentSerializer(comment, context={'request': request}).data)
-
-    @action(detail=True, methods=['delete'], url_path='delete-comment',permission_classes=[perms.CanDeleteComment])
-    def delete_comment(self, request, pk):
-        comment = self.get_object()
-        if comment.is_active == False:
-            return Response({'detail': 'No Comment matches the given query.'}, status=status.HTTP_404_NOT_FOUND)  
-         
-        comment.is_active = False
-        comment.save()
-        return Response(status=status.HTTP_204_NO_CONTENT)
     
     @action(detail=True, methods=['post'], permission_classes=[perms.IsNotRestricted])
     def reply(self, request, pk):
@@ -675,11 +676,12 @@ class NotificationViewSet(viewsets.ViewSet, generics.ListAPIView):
     serializer_class = serializers.NotificationSerializer
     pagination_class = paginators.NotificationPagination
 
-    @action(detail=True, methods=['delete'], url_path='delete-notification',permission_classes=[perms.ObjectOwner])
-    def delete_notification(self, request, pk):
-        notification = self.get_object()
-        if notification.is_active == False:
-            return Response({'detail': 'No Notification matches the given query.'}, status=status.HTTP_404_NOT_FOUND)  
+
+    def destroy(self, request, pk):
+        notification = generics.get_object_or_404(models.Notification, pk=pk, is_active=True)
+
+        if not perms.ObjectOwner().has_object_permission(request, self, notification):
+            return Response({'detail': 'You do not have permission to delete this notification.'}, status=status.HTTP_403_FORBIDDEN)
         
         notification.is_active = False
         notification.save()
@@ -717,17 +719,40 @@ class GroupViewSet(viewsets.ViewSet, generics.ListAPIView):
         serializer = self.serializer_class(group)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
+    def destroy(self, request, pk):
+        group = generics.get_object_or_404(models.Group, pk=pk, is_active=True)
 
-    @action(detail=True, methods=['delete'], url_path='delete-group')
-    def delete_group(self, request, pk):
-        group = self.get_object()
-
-        if group.is_active == False:
-            return Response({'detail': 'No Group matches the given query.'}, status=status.HTTP_404_NOT_FOUND)  
+        self.check_object_permissions(request, group)
 
         group.is_active = False
         group.save()
         return Response(status=status.HTTP_204_NO_CONTENT)
+    
+    def retrieve(self, request, pk):
+        group = generics.get_object_or_404(models.Group, pk=pk, is_active=True)
+        self.check_object_permissions(request, group)
+        serializer = serializers.GroupSerialzier(group, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    @action(detail=True, methods=['patch'], url_path='update')
+    def partical_update(self, request, pk):
+        group = self.get_object()
+
+        name = request.data.get('name')
+        member_ids = request.data.getlist('members', [])
+
+        if name:
+            group.name = name
+
+        if member_ids:
+            new_members = models.User.objects.filter(id__in=member_ids, is_active=True)
+            group.members.set(new_members)
+
+        group.save()
+        
+        serializer = serializers.GroupSerialzier(group, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
     
 @api_view(['POST'])
 @permission_classes([perms.IsAdmin])
