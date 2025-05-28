@@ -610,7 +610,7 @@ class CommentViewSet(viewsets.GenericViewSet):
         if files:
             _handle_media_upload(files, comment_obj=comment)
 
-        return Response(serializers.CommentSerializer(comment).data)
+        return Response(serializers.CommentSerializer(comment, context={'request': request}).data)
 
     @action(detail=True, methods=['delete'], url_path='delete-comment',permission_classes=[perms.CanDeleteComment])
     def delete_comment(self, request, pk):
@@ -665,7 +665,7 @@ class CommentViewSet(viewsets.GenericViewSet):
             serializer = serializers.InteractionListSerializer(page, many=True, context={'request': request})
             return self.get_paginated_response(serializer.data)
 
-        serializer = serializers.InteractionListSerializer(interactions, many=True)
+        serializer = serializers.InteractionListSerializer(interactions, many=True, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
