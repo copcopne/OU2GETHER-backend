@@ -596,7 +596,7 @@ class CommentViewSet(viewsets.GenericViewSet):
 
 
     def destroy(self, request, pk):
-        comment = generics.get_object_or_404(models.Comments, pk=pk, is_active=True)
+        comment = generics.get_object_or_404(models.Comment, pk=pk, is_active=True)
 
         if not perms.CanDeleteComment().has_object_permission(request, self, comment):
             return Response({'detail': 'You do not have permission to delete this comment.'}, status=status.HTTP_403_FORBIDDEN)
