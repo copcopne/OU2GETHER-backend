@@ -55,22 +55,23 @@ def _handle_interact(request, target_obj, reaction, is_post=True):
         if existing.type == reaction_value and existing.is_active:
             existing.is_active = False
             existing.save()
-            return Response({'detail': 'Remove interaction successfully.'}, status=status.HTTP_200_OK)
         else:
             existing.type = reaction_value
             existing.is_active = True
             existing.save()
-            return Response(serializers.InteractionListSerializer(existing).data, status=status.HTTP_200_OK)
+    else:
+        serializer = serializers.InteractionCreateSerializer(
+            data={'type': reaction_value},
+            context={'request': request}
+        )
+        serializer.is_valid(raise_exception=True)
+        kwargs = {'post': target_obj} if is_post else {'comment': target_obj}
+        serializer.save(**kwargs)
 
-    serializer = serializers.InteractionCreateSerializer(
-        data={'type': reaction_value},
-        context={'request': request}
-    )
-    serializer.is_valid(raise_exception=True)
-    kwargs = {'post': target_obj} if is_post else {'comment': target_obj}
-    interaction = serializer.save(**kwargs)
-
-    return Response(serializers.InteractionListSerializer(interaction).data, status=status.HTTP_201_CREATED)
+    if (is_post):
+        return Response(serializers.PostSerializer(target_obj, context={'request': request}).data, status=status.HTTP_200_OK)
+    else:
+        return Response(serializers.CommentSerializer(target_obj, context={'request': request}).data, status=status.HTTP_200_OK)
 
 
 def _get_followers_or_following(user, is_follower=True):
