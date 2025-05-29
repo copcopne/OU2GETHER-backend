@@ -410,8 +410,8 @@ class PostViewSet(viewsets.ViewSet, generics.ListAPIView):
                 post.content = v
                 is_edited = True
 
-            elif k == 'is_commendable':
-                post.is_commendable = v
+            elif k == 'can_comment':
+                post.can_comment = v
                 is_edited = True
 
         if is_edited:
@@ -520,7 +520,7 @@ class PostViewSet(viewsets.ViewSet, generics.ListAPIView):
         if post.is_active == False:
             return Response({'detail': 'No Post matches the given query.'}, status=status.HTTP_404_NOT_FOUND)
         
-        if post.is_commendable == False:
+        if post.can_comment == False:
             return Response({'detail': 'Comments are restricted on this post.'}, status=status.HTTP_403_FORBIDDEN)   
         
         comment_data = request.data.copy()

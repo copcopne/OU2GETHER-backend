@@ -221,7 +221,7 @@ class PostSerializer(serializers.ModelSerializer):
     # poll = serializers.SerializerMethodField()
     poll = PostPollSerializer(many=False, required=False)
     media = serializers.SerializerMethodField()
-    is_commendable = serializers.BooleanField(required=False, default=True)
+    can_comment = serializers.BooleanField(required=False, default=True)
     interactions = serializers.SerializerMethodField()
     my_interaction = serializers.SerializerMethodField()
     interaction_count = serializers.SerializerMethodField()
@@ -231,8 +231,8 @@ class PostSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         validated_data['author'] = self.context['request'].user
 
-        if 'is_commendable' not in validated_data:
-            validated_data['is_commendable'] = True
+        if 'can_comment' not in validated_data:
+            validated_data['can_comment'] = True
 
         media_data = validated_data.pop('media', None)
         poll_data = validated_data.pop('poll', None)
@@ -290,7 +290,7 @@ class PostSerializer(serializers.ModelSerializer):
     class Meta:
         model = Post
         fields = [
-            'id', 'author', 'post_type', 'is_commendable', 'is_shared',
+            'id', 'author', 'post_type', 'can_comment', 'is_shared',
             'shared_post', 'content', 'is_edited', 'created_at', 'updated_at', 
             'media', 'poll', 'interactions','my_interaction',
             'comment_count', 'share_count', 'interaction_count'

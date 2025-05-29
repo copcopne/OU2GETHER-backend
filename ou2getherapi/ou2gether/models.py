@@ -57,7 +57,7 @@ class PostType(models.IntegerChoices):
 class Post(BaseModel):
     content = models.TextField()
     post_type = models.PositiveSmallIntegerField(choices=PostType.choices, db_column='type')
-    is_commendable = models.BooleanField(default=True)
+    can_comment = models.BooleanField(default=True)
     is_edited = models.BooleanField(default=False)
     is_shared = models.BooleanField(default=False)
     shared_post = models.ForeignKey("self", on_delete=models.SET_NULL, null=True, blank=True, related_name='shares')

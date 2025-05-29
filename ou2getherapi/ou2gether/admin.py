@@ -36,10 +36,10 @@ class UserAdmin(admin.ModelAdmin):
         return False
 
 class PostAdmin(admin.ModelAdmin):
-    list_display = ['id', 'author', 'content', 'post_type', 'is_shared', 'is_commendable', 'is_active']
+    list_display = ['id', 'author', 'content', 'post_type', 'is_shared', 'can_comment', 'is_active']
     search_fields = ['author', 'content']
     list_display_links = None
-    list_filter = ['post_type', 'is_commendable']
+    list_filter = ['post_type', 'can_comment']
     list_editable =['is_active']
     list_per_page = 10
     readonly_fields = ['created_at', 'updated_at']
