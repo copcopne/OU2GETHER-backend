@@ -125,6 +125,7 @@ class UserViewSet(viewsets.ViewSet, generics.ListAPIView):
         current_user = request.user
         if current_user.is_authenticated:
             if current_user.role == models.Role.ADMIN:
+                user_data['is_verified'] = True
                 user_data['password'] = 'ou@123'
                 user_data['must_change_password'] = True
                 user_data['set_password_deadline'] = timezone.now() + timezone.timedelta(hours=24)
