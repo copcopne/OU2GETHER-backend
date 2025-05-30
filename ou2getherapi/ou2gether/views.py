@@ -274,6 +274,29 @@ class UserViewSet(viewsets.ViewSet, generics.ListAPIView):
         )
         return Response({'detail': 'User verified successfully.'}, status=status.HTTP_200_OK)
     
+    @action(detail=False, methods=['get'], url_path='locked-users',permission_classes=[permissions.IsAdminUser])
+    def locked_users(self, request):
+        params = request.query_params
+        kw = params.get("kw")
+        print("kw: ", kw);
+
+        locked_users = models.User.objects.filter(is_locked=True, is_active=True)
+
+        if kw:
+            locked_users = locked_users.filter(
+                Q(first_name__icontains=kw) |
+                Q(last_name__icontains=kw) |
+                Q(username__icontains=kw)
+            )
+        page = self.paginate_queryset(locked_users)
+
+        if page is not None:
+            serializer = serializers.UserSerializer(page, many=True, context={'request': request})
+            return self.get_paginated_response(serializer.data)
+        
+        serializer = serializers.UserSerializer(locked_users, many=True, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
     @action(detail=True, methods=['post'], url_path='reset-password-deadline', permission_classes=[permissions.IsAdminUser])
     def reset_password_deadline(self, request, pk):
         user = self.get_object()
