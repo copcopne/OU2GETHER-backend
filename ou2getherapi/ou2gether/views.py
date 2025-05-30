@@ -94,7 +94,7 @@ class UserViewSet(viewsets.ViewSet, generics.ListAPIView):
     pagination_class = paginators.UserPagination
 
     def get_queryset(self):
-        queryset =  super().get_queryset()
+        queryset =  super().get_queryset().filter(is_verified=True)
         params = self.request.query_params
 
         keyword = params.get('kw')
