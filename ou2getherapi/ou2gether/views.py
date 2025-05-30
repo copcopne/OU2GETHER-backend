@@ -99,7 +99,7 @@ class UserViewSet(viewsets.ViewSet, generics.ListAPIView):
 
         keyword = params.get('kw')
         if keyword:
-            queryset = queryset.filter(Q(first_name__icontains=keyword) | Q(last_name__icontains=keyword))
+            queryset = queryset.filter(Q(first_name__icontains=keyword) | Q(last_name__icontains=keyword) | Q(username__icontains=keyword))
         return queryset
     
     def get_permissions(self):
