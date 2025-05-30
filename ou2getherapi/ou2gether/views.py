@@ -233,7 +233,17 @@ class UserViewSet(viewsets.ViewSet, generics.ListAPIView):
     
     @action(detail=False, methods=['get'], url_path='unverified-users',permission_classes=[permissions.IsAdminUser])
     def unverified_users(self, request):
+        params = request.query_params
+        kw = params.get("kw")
+
         unverified_users = models.User.objects.filter(is_verified=False, is_active=True)
+
+        if kw:
+            unverified_users = unverified_users.filter(
+                Q(first_name__icontains=kw) |
+                Q(last_name__icontains=kw) |
+                Q(username__icontains=kw)
+            )
         page = self.paginate_queryset(unverified_users)
 
         if page is not None:
