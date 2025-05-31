@@ -624,6 +624,10 @@ class PostViewSet(viewsets.ViewSet, generics.ListAPIView):
         
         if post.post_type != models.PostType.POLL:
             return Response({"detail":"This post is not a poll."}, status=status.HTTP_400_BAD_REQUEST)
+
+        poll = post.poll
+        if poll.end_time and timezone.now() > poll.end_time:
+            return Response({"detail": "Poll has ended. Voting is closed."}, status=status.HTTP_403_FORBIDDEN)
         
         option_ids = request.data.get('option_ids', [])
         if not isinstance(option_ids, list):
@@ -636,7 +640,7 @@ class PostViewSet(viewsets.ViewSet, generics.ListAPIView):
                 vote_qs.delete()
             else:
                 models.PollVote.objects.create(user=request.user, poll_option=option)
-                
+
         post.refresh_from_db()
         return Response(self.get_serializer(post, context={'request': request}).data, 
                         status=status.HTTP_200_OK)
