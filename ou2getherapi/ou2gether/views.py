@@ -378,6 +378,8 @@ class PostViewSet(viewsets.ViewSet, generics.ListAPIView):
 
             poll_data['end_time'] = dt
 
+            poll_data['options'] = [{'content': opt} for opt in poll_data.get('options', [])]
+
         post_data['author'] = request.user.id
         if poll_data:
             t = models.PostType.POLL
@@ -423,22 +425,37 @@ class PostViewSet(viewsets.ViewSet, generics.ListAPIView):
         is_edited = False
         for k, v in request.data.items():
             if k =='poll':
-                try:
-                    poll_data = json.loads(v)
-                    if poll_data.get('end_time'):
-                        poll_data['end_time'] = timezone.datetime.fromisoformat(poll_data['end_time'])
-                        if timezone.is_naive(poll_data['end_time']):
-                            poll_data['end_time'] = timezone.make_aware(poll_data['end_time'], timezone.get_current_timezone())
-
-                        if poll_data['end_time'] < timezone.now():
+                if isinstance(v, str):
+                    try:
+                        poll_data = json.loads(v)
+                    except json.JSONDecodeError:
+                        return Response({'detail': 'Invalid poll JSON.'}, status=status.HTTP_400_BAD_REQUEST)
+                elif isinstance(v, dict):
+                    poll_data = v
+                else:
+                    return Response({'detail': 'Invalid poll data format.'}, status=status.HTTP_400_BAD_REQUEST)
+                
+                if poll_data.get('end_time'):
+                    try:
+                        dt = parse_datetime(poll_data['end_time'])
+                        if not dt:
+                            raise ValueError()
+                        if timezone.is_naive(dt):
+                            dt = timezone.make_aware(dt, timezone.get_current_timezone())
+                        if dt < timezone.now():
                             return Response({'detail': 'Poll end time must be in the future.'}, status=status.HTTP_400_BAD_REQUEST)
+                        poll_data['end_time'] = dt
+                    except Exception:
+                        return Response({'detail': 'Invalid end_time format.'}, status=status.HTTP_400_BAD_REQUEST)
                         
-                    serializer = serializers.PostPollSerializer(instance=post.poll, data=poll_data, partial=True)
-                    serializer.is_valid(raise_exception=True)
-                    serializer.save()
-                    is_edited = True
-                except json.JSONDecodeError:
-                    return Response({'detail': 'Invalid poll JSON.'}, status=status.HTTP_400_BAD_REQUEST)
+                if 'options' in poll_data:
+                    poll_data['options'] = [{'content': opt} if isinstance(opt, str) else opt for opt in poll_data['options']]
+                    
+                serializer = serializers.PostPollSerializer(instance=post.poll, data=poll_data, partial=True)
+                serializer.is_valid(raise_exception=True)
+                serializer.save()
+                is_edited = True
+
             elif k == 'content':
                 if not v.strip():
                     return Response({'detail': 'Content cannot be empty.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -446,7 +463,7 @@ class PostViewSet(viewsets.ViewSet, generics.ListAPIView):
                 is_edited = True
 
             elif k == 'can_comment':
-                post.can_comment = v
+                post.can_comment = str(v).lower() in ['true', '1']
                 is_edited = True
 
         if is_edited:
