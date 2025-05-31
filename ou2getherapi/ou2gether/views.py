@@ -354,10 +354,10 @@ class PostViewSet(viewsets.ViewSet, generics.ListAPIView):
 
         poll_data = None
         if has_poll:
-            try:
-                poll_data = json.loads(post_data.pop('poll'))
-            except json.JSONDecodeError:
-                return Response({'detail': 'Invalid poll JSON.'}, status=status.HTTP_400_BAD_REQUEST)
+            poll_data = post_data.pop('poll', None)
+
+            if not isinstance(poll_data, dict):
+                return Response({'detail': 'Poll must be a JSON object.'}, status=status.HTTP_400_BAD_REQUEST)
 
             raw_end_time = poll_data.get('end_time')
             if not raw_end_time:
