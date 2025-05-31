@@ -636,7 +636,8 @@ class PostViewSet(viewsets.ViewSet, generics.ListAPIView):
                 vote_qs.delete()
             else:
                 models.PollVote.objects.create(user=request.user, poll_option=option)
-            
+                
+        post.refresh_from_db()
         return Response(self.get_serializer(post, context={'request': request}).data, 
                         status=status.HTTP_200_OK)
 
