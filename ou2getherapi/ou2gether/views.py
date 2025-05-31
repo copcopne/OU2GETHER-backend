@@ -94,11 +94,12 @@ class UserViewSet(viewsets.ViewSet, generics.ListAPIView):
     pagination_class = paginators.UserPagination
 
     def get_queryset(self):
-        queryset =  super().get_queryset().filter(is_verified=True)
+        queryset =  super().get_queryset()
         params = self.request.query_params
 
         keyword = params.get('kw')
         if keyword:
+            queryset = queryset.filter(is_verified=True)
             queryset = queryset.filter(Q(first_name__icontains=keyword) | Q(last_name__icontains=keyword) | Q(username__icontains=keyword))
         return queryset
     
@@ -117,7 +118,6 @@ class UserViewSet(viewsets.ViewSet, generics.ListAPIView):
     def register(self, request):
         user_data = request.data.copy()
         user_data['is_active'] = True
-        user_data['is_verified'] = False
 
         if 'role' not in user_data:
             user_data['role'] = models.Role.STUDENT
@@ -131,7 +131,9 @@ class UserViewSet(viewsets.ViewSet, generics.ListAPIView):
                 user_data['password_set_deadline'] = timezone.now() + timezone.timedelta(days=1)
             else:
                 return Response({'detail': 'You do not have permission to create this user.'}, status=status.HTTP_403_FORBIDDEN)
-            
+        
+        else: 
+            user_data['is_verified'] = False
         serializer = serializers.UserSerializer(data=user_data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
@@ -698,7 +700,7 @@ class CommentViewSet(viewsets.GenericViewSet):
     @action(detail=True, methods=['get'], permission_classes=[perms.IsNotRestricted])
     def interactions(self, request, pk):
         comment = self.get_object()
-        
+
         interactions = models.Interaction.objects.filter(comment=comment, is_active=True)
         page = self.paginate_queryset(interactions)
         if page is not None:
