@@ -313,7 +313,7 @@ class UserViewSet(viewsets.ViewSet, generics.ListAPIView):
         return Response({'detail': 'Password reset deadline set successfully.'}, status=status.HTTP_200_OK)
 
 class PostViewSet(viewsets.ViewSet, generics.ListAPIView):
-    queryset = models.Post.objects.filter(Q(post_type=models.PostType.TEXT) | Q(post_type=models.PostType.MEDIA), is_active=True)
+    queryset = models.Post.objects.filter(is_active=True)
     serializer_class = serializers.PostSerializer
     permission_classes = [perms.IsNotRestricted]
     pagination_class = paginators.PostPagination
@@ -323,7 +323,7 @@ class PostViewSet(viewsets.ViewSet, generics.ListAPIView):
         queryset = super().get_queryset()
         params = self.request.query_params
         if params.get('all'):
-            queryset = models.Post.objects.filter(is_active=True)
+            queryset = queryset.filter(Q(post_type=models.PostType.TEXT) | Q(post_type=models.PostType.MEDIA), is_active=True)
         if params.get('userId'):
             user_id = params.get('userId')
             queryset = models.Post.objects.filter(author__id=user_id, is_active=True)
