@@ -311,7 +311,7 @@ class UserViewSet(viewsets.ViewSet, generics.ListAPIView):
         if user.is_active == False:
             return Response({'detail': 'No User matches the given query.'}, status=status.HTTP_404_NOT_FOUND)
         
-        if user.role != models.Role.LECTURER or user.must_change_password != True or user.is_locked != True:
+        if user.must_change_password != True or user.is_locked != True:
             return Response({'detail': "User does not need to reset password deadline."}, status=status.HTTP_400_BAD_REQUEST)
 
         user.must_change_password = True
