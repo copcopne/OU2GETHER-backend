@@ -355,7 +355,7 @@ class PostViewSet(viewsets.ViewSet, generics.ListAPIView):
         poll_data = None
         if has_poll:
             try:
-                poll_data = json.loads(post_data.pop('poll')[0])
+                poll_data = json.loads(post_data.pop('poll'))
             except json.JSONDecodeError:
                 return Response({'detail': 'Invalid poll JSON.'}, status=status.HTTP_400_BAD_REQUEST)
 
