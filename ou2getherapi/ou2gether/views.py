@@ -455,7 +455,7 @@ class PostViewSet(viewsets.ViewSet, generics.ListAPIView):
                             opt = {'content': opt}
 
                         if opt.get('to_delete') and opt.get('id'):
-                            models.PollOption.objects.filter(id=opt['id'], poll=post.poll, is_active=True).update(is_active=False)
+                            models.PollOption.objects.filter(id=opt['id'], post_poll=post.poll, is_active=True).update(is_active=False)
                         else:
                             new_options.append(opt)
 
