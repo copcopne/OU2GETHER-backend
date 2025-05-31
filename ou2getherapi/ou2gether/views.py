@@ -326,7 +326,7 @@ class PostViewSet(viewsets.ViewSet, generics.ListAPIView):
             queryset = models.Post.objects.filter(is_active=True)
         if params.get('userId'):
             user_id = params.get('userId')
-            queryset = queryset.filter(author__id=user_id)
+            queryset = models.Post.objects.filter(author__id=user_id, is_active=True)
         if params.get('poll'):
             now = timezone.now()
             queryset = models.Post.objects.filter(post_type=models.PostType.POLL, poll__end_time__gt=now, is_active=True)
