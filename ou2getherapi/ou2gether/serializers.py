@@ -4,6 +4,7 @@ from ou2gether.models import (
     PostMedia, PostPoll, PollOption, CommentMedia, InteractionChoices, 
     PostType, MessageMedia, Device, Conversation, Group
 )
+from django.utils import timezone
 
 class UserContextMixin:
     def get_is_following(self, user):
@@ -169,6 +170,8 @@ class PollOptionSerializer(serializers.ModelSerializer):
         if user.is_authenticated:
             return option.poll_votes.filter(user=user).exists()
         return False
+    
+    
 
     class Meta:
         model = PollOption
@@ -177,6 +180,7 @@ class PollOptionSerializer(serializers.ModelSerializer):
 
 class PostPollSerializer(serializers.ModelSerializer):
     options = PollOptionSerializer(many=True)
+    is_ended = serializers.SerializerMethodField()
 
     def create(self, validated_data):
         options_data = validated_data.pop('options', [])
@@ -210,9 +214,13 @@ class PostPollSerializer(serializers.ModelSerializer):
 
         return instance
     
+    def get_is_ended(self, poll):
+        now = timezone.now()
+        return now >= poll.end_time
+    
     class Meta:
         model = PostPoll
-        fields = ['id', 'post', 'question', 'options', 'end_time']
+        fields = ['id', 'post', 'question', 'options', 'end_time', 'is_ended']
 
 
 
