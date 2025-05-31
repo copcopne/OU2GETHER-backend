@@ -304,7 +304,7 @@ class UserViewSet(viewsets.ViewSet, generics.ListAPIView):
 
         user.must_change_password = True
         user.is_locked = False
-        user.set_password_deadline = timezone.now() + timezone.timedelta(days=1)
+        user.password_set_deadline = timezone.now() + timezone.timedelta(days=1)
         user.save()
         return Response({'detail': 'Password reset deadline set successfully.'}, status=status.HTTP_200_OK)
 
