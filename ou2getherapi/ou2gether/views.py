@@ -265,7 +265,9 @@ class UserViewSet(viewsets.ViewSet, generics.ListAPIView):
         user.save()
         send_mail(
             'Thông báo tình trạng tài khoản',
-            'Chào bạn,\nTài khoản của bạn đã được xác nhận và đã có thể truy cập vào hệ thống.\nChúc bạn có trải nghiệm tốt.',
+            f"Chào {user.first_name},\n"
+            "Tài khoản của bạn đã được xác nhận và đã có thể truy cập vào hệ thống.\n"
+            "Chúc bạn có trải nghiệm tốt.",
             'copcopne@gmail.com',
             [user.email],
             fail_silently=False,
