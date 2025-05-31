@@ -313,7 +313,7 @@ class UserViewSet(viewsets.ViewSet, generics.ListAPIView):
         return Response({'detail': 'Password reset deadline set successfully.'}, status=status.HTTP_200_OK)
 
 class PostViewSet(viewsets.ViewSet, generics.ListAPIView):
-    queryset = models.Post.objects.filter(is_active=True)
+    queryset = models.Post.objects.filter(Q(post_type=models.PostType.TEXT) | Q(post_type=models.PostType.MEDIA), is_active=True)
     serializer_class = serializers.PostSerializer
     permission_classes = [perms.IsNotRestricted]
     pagination_class = paginators.PostPagination
@@ -322,12 +322,14 @@ class PostViewSet(viewsets.ViewSet, generics.ListAPIView):
     def get_queryset(self):
         queryset = super().get_queryset()
         params = self.request.query_params
+        if params.get('all'):
+            queryset = models.Post.objects.filter(is_active=True)
         if params.get('userId'):
             user_id = params.get('userId')
             queryset = queryset.filter(author__id=user_id)
         if params.get('poll'):
             now = timezone.now()
-            queryset = queryset.filter(post_type=models.PostType.POLL, poll__end_time__gt=now)
+            queryset = models.Post.objects.filter(post_type=models.PostType.POLL, poll__end_time__gt=now, is_active=True)
         if params.get('following'):
             followed_user_ids = models.Follow.objects.filter(follower=self.request.user, is_active=True).values_list('following_id', flat=True)
             queryset = queryset.filter(author__in=followed_user_ids)
