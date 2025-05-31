@@ -326,7 +326,8 @@ class PostViewSet(viewsets.ViewSet, generics.ListAPIView):
             user_id = params.get('userId')
             queryset = queryset.filter(author__id=user_id)
         if params.get('poll'):
-            queryset = queryset.filter(post_type=models.PostType.POLL)
+            now = timezone.now()
+            queryset = queryset.filter(post_type=models.PostType.POLL, poll__end_time__gt=now)
         if params.get('following'):
             followed_user_ids = models.Follow.objects.filter(follower=self.request.user, is_active=True).values_list('following_id', flat=True)
             queryset = queryset.filter(author__in=followed_user_ids)
