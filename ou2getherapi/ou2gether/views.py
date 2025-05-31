@@ -634,7 +634,7 @@ class PostViewSet(viewsets.ViewSet, generics.ListAPIView):
             return Response({"detail": "option_ids must be a list object."}, status=status.HTTP_400_BAD_REQUEST)
         
         for oid in option_ids:
-            option = generics.get_object_or_404(models.PollOption, pk=oid, post_poll=post.poll)
+            option = generics.get_object_or_404(models.PollOption, pk=oid, post_poll=poll)
             vote_qs = models.PollVote.objects.filter(user=request.user, poll_option=option)
             if vote_qs.exists():
                 vote_qs.delete()
