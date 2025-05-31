@@ -142,8 +142,16 @@ class UserViewSet(viewsets.ViewSet, generics.ListAPIView):
     @action(methods=['get', 'patch'], url_path='current-user', detail=False, permission_classes=[permissions.IsAuthenticated])
     def get_current_user(self, request):
         u = request.user
+        
         if u.is_locked == True:
             return Response({'detail': 'Your account has been locked.'}, status=status.HTTP_403_FORBIDDEN)
+        
+        if u.must_change_password:
+            now = timezone.now()
+            if now > u.password_set_deadline:
+                u.is_locked = True
+                u.save()
+                return Response({'detail': 'Your account has been locked.'}, status=status.HTTP_403_FORBIDDEN)
 
         if request.method == 'PATCH':
             for k, v in request.data.items():
