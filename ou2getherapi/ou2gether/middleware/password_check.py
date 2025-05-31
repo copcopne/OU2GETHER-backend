@@ -1,5 +1,4 @@
 from django.utils import timezone
-from pytz import timezone as pytz_timezone
 from django.http import JsonResponse
 
 class PasswordDeadlineCheckMiddleware:
@@ -11,8 +10,7 @@ class PasswordDeadlineCheckMiddleware:
         if user.is_authenticated:
             if getattr(user, 'must_change_password', False):
                 deadline = getattr(user, 'password_set_deadline', None)
-                vn_now = timezone.now().astimezone(pytz_timezone('Asia/Ho_Chi_Minh'))
-                if deadline and vn_now > deadline:
+                if deadline and timezone.now() > deadline:
                     user.is_locked = True
                     user.save()
                     return JsonResponse({'detail': 'Tài khoản bị khoá do chưa đổi mật khẩu trong 24h.'}, status=403)
