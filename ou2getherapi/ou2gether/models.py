@@ -2,7 +2,6 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser
 from cloudinary.models import CloudinaryField
 from django.utils import timezone
-from pytz import timezone as pytz_timezone
 
 class BaseModel(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)

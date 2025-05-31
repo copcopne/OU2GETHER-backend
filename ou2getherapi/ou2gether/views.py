@@ -128,7 +128,7 @@ class UserViewSet(viewsets.ViewSet, generics.ListAPIView):
                 user_data['is_verified'] = True
                 user_data['password'] = 'ou@123'
                 user_data['must_change_password'] = True
-                user_data['password_set_deadline'] = timezone.now() + timezone.timedelta(minutes=1)
+                user_data['password_set_deadline'] = timezone.now() + timezone.timedelta(days=1)
             else:
                 return Response({'detail': 'You do not have permission to create this user.'}, status=status.HTTP_403_FORBIDDEN)
             
