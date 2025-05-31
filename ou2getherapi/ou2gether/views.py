@@ -449,7 +449,17 @@ class PostViewSet(viewsets.ViewSet, generics.ListAPIView):
                         return Response({'detail': 'Invalid end_time format.'}, status=status.HTTP_400_BAD_REQUEST)
                         
                 if 'options' in poll_data:
-                    poll_data['options'] = [{'content': opt} if isinstance(opt, str) else opt for opt in poll_data['options']]
+                    new_options = []
+                    for opt in poll_data['options']:
+                        if isinstance(opt, str):
+                            opt = {'content': opt}
+
+                        if opt.get('to_delete') and opt.get('id'):
+                            models.PollOption.objects.filter(id=opt['id'], poll=post.poll, is_active=True).update(is_active=False)
+                        else:
+                            new_options.append(opt)
+
+                    poll_data['options'] = new_options
                     
                 serializer = serializers.PostPollSerializer(instance=post.poll, data=poll_data, partial=True)
                 serializer.is_valid(raise_exception=True)
