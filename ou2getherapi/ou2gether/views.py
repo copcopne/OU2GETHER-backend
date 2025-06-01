@@ -235,7 +235,6 @@ class UserViewSet(viewsets.ViewSet, generics.ListAPIView):
     def unverified_users(self, request):
         params = request.query_params
         kw = params.get("kw")
-        print("kw: ", kw);
 
         unverified_users = models.User.objects.filter(is_verified=False, is_active=True)
 
@@ -278,7 +277,6 @@ class UserViewSet(viewsets.ViewSet, generics.ListAPIView):
     def locked_users(self, request):
         params = request.query_params
         kw = params.get("kw")
-        print("kw: ", kw);
 
         locked_users = models.User.objects.filter(is_locked=True, is_active=True)
 
