@@ -97,9 +97,12 @@ class UserViewSet(viewsets.ViewSet, generics.ListAPIView):
         queryset =  super().get_queryset()
         params = self.request.query_params
 
+        only_verified_users = params.get('verified')
+        if only_verified_users:
+            queryset = queryset.filter(is_verified=True)
+
         keyword = params.get('kw')
         if keyword:
-            queryset = queryset.filter(is_verified=True)
             queryset = queryset.filter(Q(first_name__icontains=keyword) | Q(last_name__icontains=keyword) | Q(username__icontains=keyword))
         return queryset
     
