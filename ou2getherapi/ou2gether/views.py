@@ -744,6 +744,7 @@ class GroupViewSet(viewsets.ViewSet, generics.ListAPIView):
     queryset = models.Group.objects.filter(is_active=True)
     serializer_class = serializers.GroupSerialzier
     permission_classes = [perms.IsAdmin]
+    pagination_class = paginators.UserPagination
 
     def create(self, request, *args, **kwargs):
         data = request.data.copy()
