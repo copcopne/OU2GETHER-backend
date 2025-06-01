@@ -8,7 +8,7 @@ router.register('posts', views.PostViewSet, basename='post')
 router.register('comments', views.CommentViewSet, basename='comment')
 router.register('notifications', views.NotificationViewSet, basename='notification')
 router.register('devices', views.DeviceViewSet, basename='device')
-router.register('group', views.GroupViewSet, basename='group')
+router.register('groups', views.GroupViewSet, basename='group')
 
 
 urlpatterns = [
