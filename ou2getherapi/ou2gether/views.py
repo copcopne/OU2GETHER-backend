@@ -741,7 +741,7 @@ class GroupViewSet(viewsets.ViewSet, generics.ListAPIView):
     def create(self, request, *args, **kwargs):
         data = request.data.copy()
         name = data.get('name')
-        member_ids = data.getlist('members', [])
+        member_ids = data.get('members', [])
         if not member_ids:
             return Response({"detail": "Member is required for groups."}, status=status.HTTP_400_BAD_REQUEST)
         group = models.Group.objects.create(name=name, is_active=True)
