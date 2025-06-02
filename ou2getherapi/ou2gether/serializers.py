@@ -2,7 +2,7 @@ from rest_framework import serializers
 from ou2gether.models import (
     User, Post, Comment, Interaction, Notification, Message,
     PostMedia, PostPoll, PollOption, CommentMedia, InteractionChoices, 
-    PostType, MessageMedia, Device, Conversation, Group
+    PostType, MessageMedia, Device, Conversation, Group, Role
 )
 from django.utils import timezone
 
@@ -163,7 +163,13 @@ class PostMediaSerializer(serializers.ModelSerializer):
 class PollOptionSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(required=False)
     is_voted = serializers.SerializerMethodField()
-    votes_count = serializers.IntegerField(source='poll_votes.count', read_only=True)
+    vote_count = serializers.SerializerMethodField()
+
+    def get_vote_count(self, option):
+        user = self.context['request'].user
+        if user.role == Role.STUDENT:
+            return 0
+        return option.poll_votes.count()
 
     def get_is_voted(self, option):
         user = self.context['request'].user
@@ -171,11 +177,10 @@ class PollOptionSerializer(serializers.ModelSerializer):
             return option.poll_votes.filter(user=user).exists()
         return False
     
-    
 
     class Meta:
         model = PollOption
-        fields = ['id', 'content', 'votes_count', 'is_voted']
+        fields = ['id', 'content', 'vote_count', 'is_voted']
 
 
 class PostPollSerializer(serializers.ModelSerializer):
