@@ -103,7 +103,7 @@ class UserViewSet(viewsets.ViewSet, generics.ListAPIView):
 
         keyword = params.get('kw')
         if keyword:
-            queryset = queryset.filter(Q(first_name__istartswith=keyword) | Q(last_name__istartswith=keyword) | Q(username__istartswith=keyword))
+            queryset = queryset.filter(Q(first_name__istartswith=keyword) | Q(last_name__istartswith=keyword) | Q(username__iexact=keyword))
         return queryset
     
     def get_permissions(self):
@@ -242,7 +242,7 @@ class UserViewSet(viewsets.ViewSet, generics.ListAPIView):
         unverified_users = models.User.objects.filter(is_verified=False, is_active=True)
 
         if kw:
-            unverified_users = unverified_users.ffilter(Q(first_name__istartswith=kw) | Q(last_name__istartswith=kw) | Q(username__istartswith=kw))
+            unverified_users = unverified_users.ffilter(Q(first_name__istartswith=kw) | Q(last_name__istartswith=kw) | Q(username__iexact=kw))
         page = self.paginate_queryset(unverified_users)
 
         if page is not None:
@@ -280,7 +280,7 @@ class UserViewSet(viewsets.ViewSet, generics.ListAPIView):
         locked_users = models.User.objects.filter(is_locked=True, is_active=True)
 
         if kw:
-            locked_users = locked_users.filter(Q(first_name__istartswith=kw) | Q(last_name__istartswith=kw) | Q(username__istartswith=kw))
+            locked_users = locked_users.filter(Q(first_name__istartswith=kw) | Q(last_name__istartswith=kw) | Q(username__iexact=kw))
         page = self.paginate_queryset(locked_users)
 
         if page is not None:
