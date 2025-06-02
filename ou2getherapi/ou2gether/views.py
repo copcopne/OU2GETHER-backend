@@ -104,6 +104,11 @@ class UserViewSet(viewsets.ViewSet, generics.ListAPIView):
         keyword = params.get('kw')
         if keyword:
             queryset = queryset.filter(Q(first_name__istartswith=keyword) | Q(last_name__istartswith=keyword) | Q(username__iexact=keyword))
+
+        group_id = params.get('groupId')
+        if(group_id):
+            queryset = queryset.filter(notify_groups__id=group_id)
+
         return queryset
     
     def get_permissions(self):
