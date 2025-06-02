@@ -36,7 +36,7 @@ schema_view = get_schema_view(
 urlpatterns = [
     path('', include('ou2gether.urls')),
     path('stats/', get_stats),
-    path('sent-email/', trigger_email),
+    path('send-email/', trigger_email),
     path('admin/', admin_site.urls),
     path('o/', include('oauth2_provider.urls',
             namespace='oauth2_provider')),

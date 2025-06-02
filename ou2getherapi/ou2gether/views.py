@@ -781,7 +781,7 @@ class GroupViewSet(viewsets.ViewSet, generics.ListAPIView):
         group = self.get_object()
 
         name = request.data.get('name')
-        member_ids = request.data.getlist('members', [])
+        member_ids = request.data.get('members', [])
 
         if name:
             group.name = name
