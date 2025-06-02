@@ -501,9 +501,10 @@ class MessageSerializer(serializers.ModelSerializer):
 
 class GroupSerialzier(serializers.ModelSerializer):
     members = CustomUserSerialzier(read_only=True, many=True)
+    member_count = serializers.IntegerField(source='members.count', read_only=True)
 
     class Meta:
         model = Group
         fields = [
-            'id', 'name', 'members'
+            'id', 'name', 'members', 'member_count'
         ]
