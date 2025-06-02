@@ -802,7 +802,7 @@ def trigger_email(request):
     if not all([subject, content, recipient_type]):
         return JsonResponse({'detail': 'subject, content and recipient_type are required.'}, status=status.HTTP_400_BAD_REQUEST)
     
-    recipient_ids = request.data.getlist('recipients', [])
+    recipient_ids = request.data.get('recipients', [])
     if not (recipient_ids or recipient_type == 'all'):
         return JsonResponse({'detail': 'recipients can not be empty.'}, status=status.HTTP_400_BAD_REQUEST)
     recipients = set()
