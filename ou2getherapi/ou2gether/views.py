@@ -596,10 +596,6 @@ class PostViewSet(viewsets.ViewSet, generics.ListAPIView):
         
         paginator = paginators.InteractPagination()
         page = paginator.paginate_queryset(interactions, request, view=self)
-         # Thêm log:
-        print(">>> DEBUG paginate_queryset returned:", page)
-        print(">>> DEBUG type(page):", type(page))
-        print(">>> DEBUG total interactions:", interactions.count())
         if page is not None:
             serializer = serializers.InteractionListSerializer(page, many=True, context={'request': request})
             return paginator.get_paginated_response(serializer.data)
