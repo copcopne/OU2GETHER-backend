@@ -598,7 +598,7 @@ class PostViewSet(viewsets.ViewSet, generics.ListAPIView):
         page = paginator.paginate_queryset(interactions, request, view=self)
         if page is not None:
             serializer = serializers.InteractionListSerializer(page, many=True, context={'request': request})
-            return self.get_paginated_response(serializer.data)
+            return paginator.get_paginated_response(serializer.data)
 
         serializer = serializers.InteractionListSerializer(interactions, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -707,7 +707,7 @@ class CommentViewSet(viewsets.GenericViewSet):
         page = paginator.paginate_queryset(interactions, request, view=self)
         if page is not None:
             serializer = serializers.InteractionListSerializer(page, many=True, context={'request': request})
-            return self.get_paginated_response(serializer.data)
+            return paginator.get_paginated_response(serializer.data)
 
         serializer = serializers.InteractionListSerializer(interactions, many=True, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
