@@ -592,9 +592,10 @@ class PostViewSet(viewsets.ViewSet, generics.ListAPIView):
     @action(detail=True, methods=['get'], permission_classes=[perms.IsNotRestricted])
     def interactions(self, request, pk):
         post = self.get_object()
-
         interactions = models.Interaction.objects.filter(post=post, is_active=True)
-        page = self.paginate_queryset(interactions)
+        
+        paginator = paginators.InteractPagination()
+        page = paginator.paginate_queryset(interactions, request, view=self)
         if page is not None:
             serializer = serializers.InteractionListSerializer(page, many=True, context={'request': request})
             return self.get_paginated_response(serializer.data)
@@ -700,9 +701,10 @@ class CommentViewSet(viewsets.GenericViewSet):
     @action(detail=True, methods=['get'], permission_classes=[perms.IsNotRestricted])
     def interactions(self, request, pk):
         comment = self.get_object()
-
         interactions = models.Interaction.objects.filter(comment=comment, is_active=True)
-        page = self.paginate_queryset(interactions)
+
+        paginator = paginators.InteractPagination()
+        page = paginator.paginate_queryset(interactions, request, view=self)
         if page is not None:
             serializer = serializers.InteractionListSerializer(page, many=True, context={'request': request})
             return self.get_paginated_response(serializer.data)
