@@ -593,6 +593,14 @@ class PostViewSet(viewsets.ViewSet, generics.ListAPIView):
     def interactions(self, request, pk):
         post = self.get_object()
         interactions = models.Interaction.objects.filter(post=post, is_active=True)
+
+        type_param = request.query_params.get("type")
+        if type_param:
+            try:
+                type_enum = models.InteractionChoices[type_param.upper()]
+                interactions = interactions.filter(type=type_enum.value)
+            except KeyError:
+                pass
         
         paginator = paginators.InteractPagination()
         page = paginator.paginate_queryset(interactions, request, view=self)
@@ -702,6 +710,14 @@ class CommentViewSet(viewsets.GenericViewSet):
     def interactions(self, request, pk):
         comment = self.get_object()
         interactions = models.Interaction.objects.filter(comment=comment, is_active=True)
+
+        type_param = request.query_params.get("type")
+        if type_param:
+            try:
+                type_enum = models.InteractionChoices[type_param.upper()]
+                interactions = interactions.filter(type=type_enum.value)
+            except KeyError:
+                pass
 
         paginator = paginators.InteractPagination()
         page = paginator.paginate_queryset(interactions, request, view=self)
