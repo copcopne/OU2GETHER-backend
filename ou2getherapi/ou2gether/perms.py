@@ -7,7 +7,7 @@ class IsAdmin(permissions.IsAuthenticated):
 
 class IsAuthenticated(permissions.IsAuthenticated):
     def has_permission(self, request, view):
-        return super().has_permission(request, view) and request.user.is_verified
+        return super().has_permission(request, view) and request.user.is_verified and not request.user.is_locked
 
 class CommentOwner(permissions.IsAuthenticated):
     def has_object_permission(self, request, view, comment):

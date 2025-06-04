@@ -142,7 +142,7 @@ TIME_ZONE = 'Asia/Ho_Chi_Minh'
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
 STATIC_URL = 'static/'
-
+STATICFILES_DIRS = [ BASE_DIR / "ou2gether/static" ]
 STATIC_ROOT = "/home/copcopne/staticfiles" # Cấu hình pythonanywhere
 
 # Default primary key field type
