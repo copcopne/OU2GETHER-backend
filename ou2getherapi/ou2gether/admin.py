@@ -102,7 +102,8 @@ class UserAdmin(admin.ModelAdmin):
         if not change:
             default_password = "ou@123"
             obj.set_password(default_password)
-            obj.must_change_password=True
+            obj.is_verified = True
+            obj.must_change_password = True
             obj.password_set_deadline = timezone.now() + timezone.timedelta(days=1)
 
             if obj.role == models.Role.ADMIN:
