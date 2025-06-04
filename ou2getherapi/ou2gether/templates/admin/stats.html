@@ -1,0 +1,178 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container">
+
+    <form id="report-form" class="text-center mb-4" method="GET">
+        <!-- 1. Chọn object_type -->
+        <div class="form-group">
+            <label for="object_type" class="form-control-label font-weight-bold">Chọn đối tượng</label>
+            <select id="object_type" name="object_type" class="form-control w-auto mx-auto">
+                <option value="posts" {% if object_type == "posts" %}selected{% endif %}>Bài viết</option>
+                <option value="users" {% if object_type == "users" %}selected{% endif %}>Người dùng</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="report_type" class="form-control-label font-weight-bold">Loại báo cáo</label>
+            <select id="report_type" name="report_type" class="form-control w-auto mx-auto">
+                <option value="month" {% if report_type == "month" %}selected{% endif %}>Theo Tháng</option>
+                <option value="quarter" {% if report_type == "quarter" %}selected{% endif %}>Theo Quý</option>
+                <option value="year" {% if report_type == "year" %}selected{% endif %}>Theo Năm</option>
+            </select>
+        </div>
+
+        <div id="month_picker" class="form-group" style="display: none;">
+            <label class="form-control-label font-weight-bold">Chọn tháng &amp; năm</label>
+            <div class="d-flex justify-content-center">
+                <select id="month" name="month" class="form-control w-auto mx-2">
+                    <option value="1" {% if month_value == "1" %}selected{% endif %}>Tháng 1</option>
+                    <option value="2" {% if month_value == "2" %}selected{% endif %}>Tháng 2</option>
+                    <option value="3" {% if month_value == "3" %}selected{% endif %}>Tháng 3</option>
+                    <option value="4" {% if month_value == "4" %}selected{% endif %}>Tháng 4</option>
+                    <option value="5" {% if month_value == "5" %}selected{% endif %}>Tháng 5</option>
+                    <option value="6" {% if month_value == "6" %}selected{% endif %}>Tháng 6</option>
+                    <option value="7" {% if month_value == "7" %}selected{% endif %}>Tháng 7</option>
+                    <option value="8" {% if month_value == "8" %}selected{% endif %}>Tháng 8</option>
+                    <option value="9" {% if month_value == "9" %}selected{% endif %}>Tháng 9</option>
+                    <option value="10" {% if month_value == "10" %}selected{% endif %}>Tháng 10</option>
+                    <option value="11" {% if month_value == "11" %}selected{% endif %}>Tháng 11</option>
+                    <option value="12" {% if month_value == "12" %}selected{% endif %}>Tháng 12</option>
+                </select>
+
+                <select id="year_for_month" name="year" class="form-control w-auto mx-2">
+                    {% for y in year_list %}
+                        <option value="{{ y }}" {% if year_value|default:"" == y|stringformat:"s" %}selected{% endif %}>
+                            {{ y }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <div id="quarter_picker" class="form-group" style="display: none;">
+            <label class="form-control-label font-weight-bold">Chọn tháng &amp; năm</label>
+            <div class="d-flex justify-content-center">
+                <select id="quarter" name="quarter" class="form-control w-auto mx-2">
+                    <option value="1" {% if quarter_value == "1" %}selected{% endif %}>Quý 1</option>
+                    <option value="2" {% if quarter_value == "2" %}selected{% endif %}>Quý 2</option>
+                    <option value="3" {% if quarter_value == "3" %}selected{% endif %}>Quý 3</option>
+                    <option value="4" {% if quarter_value == "4" %}selected{% endif %}>Quý 4</option>
+                </select>
+                <select id="year_for_quarter" name="year" class="form-control w-auto mx-2">
+                    {% for y in year_list %}
+                        <option value="{{ y }}" {% if year_value|default:"" == y|stringformat:"s" %}selected{% endif %}>
+                            {{ y }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <div id="year_picker" class="form-group" style="display: none;">
+            <label for="year" class="form-control-label font-weight-bold">CHỌN NĂM</label>
+            <select id="year" name="year" class="form-control w-auto mx-auto">
+                {% for y in year_list %}
+                    <option value="{{ y }}" {% if year_value|default:"" == y|stringformat:"s" %}selected{% endif %}>
+                        {{ y }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <button id="submit-btn" class="btn btn-primary" type="submit">Xem báo cáo</button>
+    </form>
+
+    <div class="mt-4">
+        <canvas id="pieChart" style="max-width: 500px; margin: auto;"></canvas>
+    </div>
+
+</div>
+
+<!-- Nhúng Chart.js từ CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+    function togglePickers() {
+        const type = document.getElementById('report_type').value;
+
+        const monthPicker = document.getElementById('month_picker');
+        const quarterPicker = document.getElementById('quarter_picker');
+        const yearPicker = document.getElementById('year_picker');
+
+        monthPicker.style.display = (type === 'month') ? 'block' : 'none';
+        quarterPicker.style.display = (type === 'quarter') ? 'block' : 'none';
+        yearPicker.style.display = (type === 'year') ? 'block' : 'none';
+
+        document.getElementById('year_for_month').disabled = (type !== 'month');
+        document.getElementById('year_for_quarter').disabled = (type !== 'quarter');
+        document.getElementById('year').disabled = (type !== 'year');
+        document.getElementById('quarter').disabled = (type !=='quarter');
+        document.getElementById('month').disabled = (type !=='month');
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        togglePickers();
+        document.getElementById('report_type').addEventListener('change', togglePickers);
+
+        {% if data.label != '' %}
+            renderPieChart();
+        {% endif %}
+    });
+
+    let pieChartInstance = null;
+
+    function renderPieChart() {
+        const dataFromContext = {
+            label: "{{ data.label }}",
+            count: {{ data.count }},
+            total: {{ data.total }}
+        };
+        const objectType = "{{ object_type }}";  // "posts" hoặc "users"
+
+        const chosen = dataFromContext.count;
+        const remaining = dataFromContext.total - chosen;
+        const validRemaining = (remaining < 0) ? 0 : remaining;
+
+        if (pieChartInstance) {
+            pieChartInstance.destroy();
+        }
+
+        const ctx = document.getElementById('pieChart').getContext('2d');
+        pieChartInstance = new Chart(ctx, {
+            type: 'pie',
+            data: {
+                labels: [
+                    `${ dataFromContext.label } (${chosen})`,
+                    `Còn lại (${validRemaining})`
+                ],
+                datasets: [{
+                    data: [chosen, validRemaining],
+                    backgroundColor: [
+                        'rgba(54, 162, 235, 0.6)',
+                        'rgba(255, 99, 132, 0.6)'
+                    ],
+                    borderColor: [
+                        'rgba(54, 162, 235, 1)',
+                        'rgba(255, 99, 132, 1)'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                plugins: {
+                    title: {
+                        display: true,
+                        text: `Biểu đồ ${ dataFromContext.label }`
+                    },
+                    legend: {
+                        position: 'bottom'
+                    }
+                }
+            }
+        });
+    }
+</script>
+
+{% endblock %}
