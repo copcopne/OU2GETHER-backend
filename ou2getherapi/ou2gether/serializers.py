@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from ou2gether.models import (
     User, Post, Comment, Interaction, Notification, Message,
-    PostMedia, PostPoll, PollOption, CommentMedia, InteractionChoices, 
+    PostMedia, PostPoll, PollOption, InteractionChoices, 
     PostType, MessageMedia, Device, Conversation, Group, Role
 )
 from django.utils import timezone
@@ -314,18 +314,9 @@ class PostSerializer(serializers.ModelSerializer):
         ]
 
 
-class CommentMediaSerializer(serializers.ModelSerializer):
-    file_url = serializers.CharField(source='file.url')
-
-    class Meta:
-        model = CommentMedia
-        fields = ['id', 'file_url', 'created_at']
-
-
 class CommentSerializer(serializers.ModelSerializer):
     post = serializers.PrimaryKeyRelatedField(queryset=Post.objects.filter(is_active=True), required=True)
     parent_comment = serializers.PrimaryKeyRelatedField(queryset=Comment.objects.filter(is_active=True), required=False)
-    media = CommentMediaSerializer(many=False, required=False)
     interactions = serializers.SerializerMethodField()
     interaction_count = serializers.SerializerMethodField()
     author = MinimalUserSerializer(read_only=True)
@@ -334,7 +325,6 @@ class CommentSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         validated_data['author'] = self.context['request'].user
 
-        media_data = validated_data.pop('media', None)
 
         parent = self.context.get('parent_comment', None)
         if not parent:
@@ -346,9 +336,6 @@ class CommentSerializer(serializers.ModelSerializer):
             validated_data['parent_comment'] = parent
 
         comment = Comment.objects.create(**validated_data)
-
-        if media_data and isinstance(media_data, dict) and 'file' in media_data:
-            CommentMedia.objects.create(comment=comment, file=media_data['file'])
 
         return comment
     
@@ -385,8 +372,8 @@ class CommentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Comment
         fields = [
-            'id', 'post', 'author', 'content',
-            'media', 'is_edited', 'interactions', 'my_interaction', 'created_at', 'updated_at', 
+            'id', 'post', 'author', 'content', 'is_edited', 
+            'interactions', 'my_interaction', 'created_at', 'updated_at', 
             'parent_comment', 'interaction_count'
         ]
         read_only_fields = [

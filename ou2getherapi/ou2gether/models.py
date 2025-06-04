@@ -142,11 +142,6 @@ class Comment(BaseModel):
         ordering = ['-created_at']
 
 
-class CommentMedia(MediaModel):
-    comment = models.OneToOneField(Comment, on_delete=models.CASCADE, related_name='media')
-    media_type = models.CharField(max_length=10, choices=[('image','Image'),('video','Video')])
-
-
 class Device(BaseModel):
     device_token = models.CharField(max_length=255, unique=True)
 

@@ -16,25 +16,18 @@ from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import api_view, permission_classes
 
 
-def _handle_media_upload(files, comment_obj=None, post_obj=None):
+def _handle_media_upload(files, post_obj=None):
     for file in files:
         media_type = 'image' if file.content_type.startswith('image/') else 'video'
         upload_result = upload(file, resource_type=media_type)
         path = f"{upload_result['resource_type']}/upload/v{upload_result['version']}/{upload_result['public_id']}.{upload_result['format']}"
-        if comment_obj:
-            models.CommentMedia.objects.create(
-                comment=comment_obj,
-                file=path,
-                media_type=media_type
-            )
-            comment_obj.refresh_from_db()
-        else:
-            models.PostMedia.objects.create(
-                post=post_obj,
-                file=path,
-                media_type=media_type
-            )
-            post_obj.refresh_from_db()
+        
+        models.PostMedia.objects.create(
+            post=post_obj,
+            file=path,
+            media_type=media_type
+        )
+        post_obj.refresh_from_db()
 
 
 def _handle_interact(request, target_obj, reaction, is_post=True):
@@ -583,10 +576,6 @@ class PostViewSet(viewsets.ViewSet, generics.ListAPIView):
         serializer.is_valid(raise_exception=True)
         comment = serializer.save(author=request.user)
 
-        files = request.FILES.getlist('media')
-        if files:
-            _handle_media_upload(files, comment_obj=comment)
-
         return Response(serializers.CommentSerializer(comment, context={'request': request}).data, status=status.HTTP_201_CREATED)
     
     @action(detail=True, methods=['get'], permission_classes=[perms.IsNotRestricted])
@@ -673,10 +662,6 @@ class CommentViewSet(viewsets.GenericViewSet):
             comment.content = content
         comment.save()
 
-        files = request.FILES.getlist('media')
-        if files:
-            _handle_media_upload(files, comment_obj=comment)
-
         return Response(serializers.CommentSerializer(comment, context={'request': request}).data)
     
     @action(detail=True, methods=['post'], permission_classes=[perms.IsNotRestricted])
@@ -693,10 +678,6 @@ class CommentViewSet(viewsets.GenericViewSet):
         serializer = serializers.CommentSerializer(data=reply_data, context={'request': request})
         serializer.is_valid(raise_exception=True)
         reply = serializer.save(author=request.user, parent_comment=comment)
-
-        files = request.FILES.getlist('media')
-        if files:
-            _handle_media_upload(files, comment_obj=reply)
 
         return Response(serializers.CommentSerializer(reply, context={'request': request}).data, status=status.HTTP_201_CREATED)
     
