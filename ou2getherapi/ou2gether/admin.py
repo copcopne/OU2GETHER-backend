@@ -223,7 +223,7 @@ class PostAdmin(admin.ModelAdmin):
 
 class PostPollAdmin(admin.ModelAdmin):
     list_display = ['id', 'post', 'question', 'end_time','is_active']
-    list_filter = ['question', 'is_active']
+    list_filter = ['is_active']
     list_editable =['is_active']
     list_per_page = 10
     readonly_fields = ['created_at', 'updated_at']

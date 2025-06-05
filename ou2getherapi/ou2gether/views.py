@@ -776,7 +776,7 @@ class GroupViewSet(viewsets.ViewSet, generics.ListAPIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
     
     @action(detail=True, methods=['patch'], url_path='update')
-    def partical_update(self, request, pk):
+    def partial_update(self, request, pk):
         group = self.get_object()
 
         name = request.data.get('name')
@@ -786,8 +786,17 @@ class GroupViewSet(viewsets.ViewSet, generics.ListAPIView):
             group.name = name
 
         if member_ids:
-            new_members = models.User.objects.filter(id__in=member_ids, is_active=True)
-            group.members.set(new_members)
+            current_members = set(group.members.values_list('id', flat=True))
+            incoming_members = set(member_ids)
+
+            to_remove = current_members & incoming_members
+            to_add = incoming_members - current_members
+
+            if to_remove:
+                group.members.remove(*to_remove)
+            if to_add:
+                new_members = models.User.objects.filter(id__in=to_add, is_active=True)
+                group.members.add(*new_members)
 
         group.save()
         
