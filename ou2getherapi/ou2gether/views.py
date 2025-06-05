@@ -775,10 +775,10 @@ class GroupViewSet(viewsets.ViewSet, generics.ListAPIView):
         serializer = serializers.GroupSerialzier(group, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
     
-    @action(detail=True, methods=['patch'], url_path='update')
     def partial_update(self, request, pk):
-        group = self.get_object()
-
+        group = generics.get_object_or_404(models.Group, pk=pk, is_active=True)
+        self.check_object_permissions(request, group)
+        
         name = request.data.get('name')
         member_ids = request.data.get('members', [])
 
