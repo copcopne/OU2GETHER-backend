@@ -214,7 +214,7 @@ class Follow(BaseModel):
 
     class Meta:
         unique_together = ('follower', 'following')
-        ordering = ['-created_at']
+        ordering = ['-updated_at']
 
 
 class Block(BaseModel):

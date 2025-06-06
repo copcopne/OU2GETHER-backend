@@ -231,7 +231,6 @@ class PostPollSerializer(serializers.ModelSerializer):
 
 class PostSerializer(serializers.ModelSerializer):
     author = MinimalUserSerializer(read_only=True)
-    # poll = serializers.SerializerMethodField()
     poll = PostPollSerializer(many=False, required=False)
     media = serializers.SerializerMethodField()
     can_comment = serializers.BooleanField(required=False, default=True)
@@ -262,11 +261,6 @@ class PostSerializer(serializers.ModelSerializer):
             poll.save(post=post)
 
         return post
-
-    # def get_poll(self, post):
-    #     if hasattr(post, 'poll'):
-    #         return PostPollSerializer(post.poll, context=self.context).data
-    #     return None
 
     def get_media(self, post):
         return PostMediaSerializer(post.media.filter(is_active=True), many=True).data
@@ -398,7 +392,7 @@ class InteractionCreateSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        data['user'] = MinimalUserSerializer(instance.user).data
+        data['user'] = MinimalUserSerializer(instance.user, context=self.context).data
         return data
     
     class Meta:
@@ -419,7 +413,7 @@ class InteractionListSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        data['user'] = MinimalUserSerializer(instance.user).data
+        data['user'] = MinimalUserSerializer(instance.user, context=self.context).data
         return data
 
     class Meta:
