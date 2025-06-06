@@ -91,9 +91,6 @@ class UserSerializer(UserContextMixin, serializers.ModelSerializer):
             'id': {
                 'read_only': True
             },
-            'is_verified': {
-                'read_only': True
-            },
             'date_joined': {
                 'read_only': True
             },
