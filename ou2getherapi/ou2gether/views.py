@@ -742,6 +742,16 @@ class GroupViewSet(viewsets.ViewSet, generics.ListAPIView):
     permission_classes = [perms.IsAdmin]
     pagination_class = paginators.UserPagination
 
+    def get_queryset(self):
+        qs = super().get_queryset()
+        params = self.request.query_params
+        
+        keyword = params.get('kw')
+        if keyword:
+            qs = qs.filter(name__icontains=keyword)
+
+        return qs
+
     def create(self, request, *args, **kwargs):
         data = request.data.copy()
         name = data.get('name')
