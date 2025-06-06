@@ -85,7 +85,7 @@ class UserSerializer(UserContextMixin, serializers.ModelSerializer):
             'is_following', 'number_of_followers', 'number_of_followings',
             'must_change_password', 'password_set_deadline', 'is_locked', 
             'is_verified', 'date_joined',
-            'is_myself', 'if_mutual', 'is_superuser', 'is_staff'
+            'is_myself', 'if_mutual'
         ]
         extra_kwargs = {
             'id': {
@@ -100,13 +100,7 @@ class UserSerializer(UserContextMixin, serializers.ModelSerializer):
             }, 
             'member_id': {
                 'required': True
-            },
-            'is_superuser': {
-                'write_only': True
-            }, 
-            'is_staff': {
-                'write_only': True
-            }, 
+            }
         }
 
 

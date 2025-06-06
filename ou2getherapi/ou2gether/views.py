@@ -130,9 +130,6 @@ class UserViewSet(viewsets.ViewSet, generics.ListAPIView):
                 user_data['password'] = 'ou@123'
                 user_data['must_change_password'] = True
                 user_data['password_set_deadline'] = timezone.now() + timezone.timedelta(days=1)
-                if user_data['role'] == models.Role.ADMIN:
-                    user_data['is_staff'] = True
-                    user_data['is_superuser'] = True
             else:
                 return Response({'detail': 'You do not have permission to create this user.'}, status=status.HTTP_403_FORBIDDEN)
         
