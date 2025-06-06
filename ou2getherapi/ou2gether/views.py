@@ -232,7 +232,7 @@ class UserViewSet(viewsets.ViewSet, generics.ListAPIView):
         serializer = serializers.MinimalUserSerializer(following_qs, many=True, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
     
-    @action(detail=False, methods=['get'], url_path='unverified-users',permission_classes=[permissions.IsAdminUser])
+    @action(detail=False, methods=['get'], url_path='unverified-users',permission_classes=[perms.IsAdmin])
     def unverified_users(self, request):
         params = request.query_params
         kw = params.get("kw")
@@ -250,7 +250,7 @@ class UserViewSet(viewsets.ViewSet, generics.ListAPIView):
         serializer = serializers.UserSerializer(unverified_users, many=True, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
     
-    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAdminUser])
+    @action(detail=True, methods=['post'], permission_classes=[perms.IsAdmin])
     def verify(self, request, pk):
         user = self.get_object()
         
@@ -270,7 +270,7 @@ class UserViewSet(viewsets.ViewSet, generics.ListAPIView):
         )
         return Response({'detail': 'User verified successfully.'}, status=status.HTTP_200_OK)
     
-    @action(detail=False, methods=['get'], url_path='locked-users',permission_classes=[permissions.IsAdminUser])
+    @action(detail=False, methods=['get'], url_path='locked-users',permission_classes=[perms.IsAdmin])
     def locked_users(self, request):
         params = request.query_params
         kw = params.get("kw")
