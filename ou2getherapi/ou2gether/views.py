@@ -748,7 +748,7 @@ class GroupViewSet(viewsets.ViewSet, generics.ListAPIView):
         
         keyword = params.get('kw')
         if keyword:
-            qs = qs.filter(name__icontains=keyword)
+            qs = qs.filter(name__istartswith=keyword)
 
         return qs
 
