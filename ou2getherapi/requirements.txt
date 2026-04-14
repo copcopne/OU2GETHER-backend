@@ -4,7 +4,7 @@ cffi==1.17.1
 charset-normalizer==3.4.1
 cloudinary==1.42.2
 cryptography==44.0.2
-Django==5.1.6
+Django==5.1.15
 django-ckeditor==6.7.2
 django-js-asset==3.0.1
 django-oauth-toolkit==3.0.1
